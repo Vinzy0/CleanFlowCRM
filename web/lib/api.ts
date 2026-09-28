@@ -72,9 +72,11 @@ export async function api(path: string, init?: RequestInit) {
 
 export async function authenticatedApi(path: string, init?: RequestInit) {
   const token = (await cookies()).get("cleanflow_session")?.value;
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token ?? ""}`);
   return api(path, {
     ...init,
-    headers: { ...init?.headers, Authorization: `Bearer ${token ?? ""}` },
+    headers,
   });
 }
 

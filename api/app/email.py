@@ -45,7 +45,7 @@ class EmailSettings:
         if self.demo_mode and not self.demo_override:
             return "disabled"
         if self.transport == LOG_TRANSPORT:
-            return "redirected" if self.demo_override else "sandbox"
+            return "sandbox"
         if self.demo_override:
             return "redirected"
         return "live" if self.api_key and self.sender else "disabled"
@@ -76,6 +76,7 @@ class EmailMessage:
     subject: str
     body: str
     reply_to: str | None = None
+    idempotency_key: str | None = None
 
 
 class EmailProvider(Protocol):
@@ -100,6 +101,8 @@ class ResendProvider:
         if message.reply_to:
             payload["reply_to"] = message.reply_to
         headers = {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
+        if message.idempotency_key:
+            headers["Idempotency-Key"] = message.idempotency_key
         try:
             if self.client is None:
                 with httpx.Client(timeout=20.0) as client:
@@ -110,7 +113,9 @@ class ResendProvider:
             provider_id = response.json().get("id")
         except (httpx.HTTPError, ValueError, AttributeError) as exc:
             raise EmailProviderError("Email provider request failed") from exc
-        return provider_id if isinstance(provider_id, str) else ""
+        if not isinstance(provider_id, str) or not provider_id:
+            raise EmailProviderError("Email provider returned no receipt")
+        return provider_id
 
 
 class LogProvider:

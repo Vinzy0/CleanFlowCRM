@@ -2,7 +2,7 @@
 
 A working CRM and inquiry-automation demo built for a **fictional cleaning business**. It is a portfolio piece: a complete, runnable product rather than a mockup, and the same kind of system can be rebuilt around another business's fields, stages, categories and branding.
 
-**Status: Phases 1–6 of the [PRD](docs/PRD.md) are implemented and locally verified.** Public deployment, the demo video and real PostgreSQL/Resend verification are still outstanding — see [Known limitations](#known-limitations) and [docs/VERIFICATION.md](docs/VERIFICATION.md).
+**Status: The application flow in [the PRD](docs/PRD.md) has passed local checks.** Public deployment, the demo video and real PostgreSQL/Resend verification are still outstanding — see [Known limitations](#known-limitations) and [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
 ---
 
@@ -31,7 +31,7 @@ AI drafts a suggested reply       (stored, never sent)
         ↓
 Owner reviews and edits it, then presses Send   ← the only path to an email
         ↓
-Email is delivered through Resend and the timeline records it
+Resend delivers the email when configured; the sandbox captures it locally
 ```
 
 Two product rules shape the whole build:
@@ -69,7 +69,7 @@ CleanFlow CRM/
 │  │  ├─ schemas.py        request/response validation
 │  │  ├─ auth.py           Argon2 password hashing + signed session tokens
 │  │  └─ settings.py       environment handling
-│  ├─ alembic/             migrations (0001 foundation, 0002 automation/demo)
+│  ├─ alembic/             migrations (0001 foundation, 0002 automation/demo, 0003 demo-user isolation)
 │  └─ tests/               pytest suite, fully offline
 ├─ web/                    Next.js frontend
 │  ├─ app/                 public pages (/ , /inquiry, /login) and the CRM
@@ -102,17 +102,17 @@ cp ../.env.example ../.env      # then edit ../.env
 Set at minimum:
 
 ```ini
-DATABASE_URL=postgresql+psycopg://cleanflow:cleanflow@localhost:5432/cleanflow
+DATABASE_URL=postgresql+psycopg://cleanflow:replace-with-local-password@localhost:5432/cleanflow
 JWT_SECRET=<at least 32 characters>
 OPENROUTER_API_KEY=<your key>
 ```
 
-The backend reads the repository-root `.env` automatically after the process environment, so `JWT_SECRET`, the AI and the email values can live there. `DATABASE_URL` must be set in the process environment for direct runs.
+The backend reads the repository-root `.env` for local JWT and email settings when process variables are absent. The AI adapter prefers the project `.env` key over an inherited machine key. `DATABASE_URL` must be set in the process environment for direct runs.
 
 Apply migrations and create the first user:
 
 ```bash
-export DATABASE_URL="postgresql+psycopg://cleanflow:cleanflow@localhost:5432/cleanflow"
+export DATABASE_URL="postgresql+psycopg://cleanflow:replace-with-local-password@localhost:5432/cleanflow"
 ./.venv/Scripts/python -m alembic upgrade head
 ./.venv/Scripts/python -m app.create_user owner@example.com "Owner Name"   # prompts for a password
 ./.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
@@ -147,6 +147,7 @@ SQLite is for local development and the offline test suite. Claiming the PRD's P
 cp .env.example .env             # set POSTGRES_PASSWORD, DATABASE_URL, JWT_SECRET
 docker compose up --build
 docker compose exec api python -m app.create_user owner@example.com "Owner"
+docker compose exec api python -m app.create_user --demo demo@example.com "Public Demo"
 ```
 
 The API container runs `alembic upgrade head` before starting. The database is health-gated, so the API waits for PostgreSQL.
@@ -161,7 +162,7 @@ The API container runs `alembic upgrade head` before starting. The database is h
 | `JWT_SECRET` | yes | Signs session tokens. Minimum 32 characters. |
 | `OPENROUTER_API_KEY` | for AI | Backend-only key. Without it the app still works; AI states show as failed with a retry. |
 | `OPENROUTER_MODEL` | no | Defaults to `deepseek/deepseek-v4.1-flash`. |
-| `OPENROUTER_MAX_ATTEMPTS` | no | Defaults to `2`. The configured model is a reasoning model, so completion budgets must cover hidden reasoning tokens. |
+| `OPENROUTER_MAX_ATTEMPTS` | no | Defaults to `2` and is capped at `2` (one retry). Set `1` to disable the retry. |
 | `RESEND_API_KEY` | for email | Backend-only key. |
 | `EMAIL_FROM` | for email | Verified sender, e.g. `Acme Cleaning Services <no-reply@yourdomain>` |
 | `OWNER_NOTIFICATION_EMAIL` | for email | Where new-lead notifications go. Missing → the attempt is recorded as failed, not silently dropped. |
@@ -174,7 +175,7 @@ The API container runs `alembic upgrade head` before starting. The database is h
 | `RATE_LIMIT_*` | no | Per-bucket limits: `INQUIRY`, `SIMULATE`, `CLASSIFY`, `DRAFT`, `EMAIL`, `LOGIN`, `RESET`, each with an optional `_WINDOW_SECONDS`. |
 | `TRUST_PROXY_HEADERS` | no | Leave `false` unless a trusted proxy overwrites `X-Forwarded-For`. |
 | `API_URL` (web) | yes | Backend base URL for the Next.js server. |
-| `DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` (web) | demo | Server-side only; enables the one-click "Enter demo workspace" button. |
+| `DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` (web) | demo | Server-side only; must match an account created with `app.create_user --demo`. The one-click login checks that flag before setting a session. |
 
 ---
 
@@ -226,7 +227,7 @@ Outbound email is backend-only. Recipients are never taken from a request body:
 
 - **Owner notification** — sent after AI analysis, containing the customer, service, priority, preferred date and a CRM link. Wrapped so an email failure can never prevent lead creation; a failure is recorded as an `email_failed` activity with a reason and a retry endpoint.
 - **Customer reply** — only from `POST /api/leads/{id}/send-email`, which accepts a subject and body and always targets the lead's own address. Draft generation stores text and nothing else.
-- **Duplicate protection** — each email is one activity row behind a unique idempotency key. Repeating an identical send returns `duplicate: true` without delivering; editing the body produces a new send. Failed sends are retried in place with an attempt counter.
+- **Duplicate protection** — each email is one activity row behind a unique idempotency key. Repeating the same subject/body to the same lead address returns `duplicate: true`; changing the text or correcting the lead address permits a new send. A pending send cannot start a second provider call. Resend also receives an idempotency key for retries. Failed sends are retried in place with an attempt counter. Identical text cannot be intentionally resent to the same address; this is the MVP boundary. A process crash during a pending send requires checking the provider before manually clearing that state.
 - **Sandbox transport** — `EMAIL_TRANSPORT=log` writes messages to a JSON-lines file instead of delivering them. It is a development/demo convenience; production uses Resend.
 
 ---
@@ -240,8 +241,8 @@ Enable with `DEMO_MODE=true`. It adds a prominent **Simulate new inquiry** actio
 - **Fake data only** — every scenario uses `@example.com` addresses and `555` numbers, validated at import so the pool cannot drift.
 - **AI cost control** — per-address limits, a fixed scenario pool, and reuse of an already-stored result for an identical scenario on the same day, so repeated resets do not re-pay for the same classification.
 - **Email safety** — with demo mode on and no `DEMO_EMAIL_OVERRIDE`, the backend refuses to send *anything*. With an override set, every recipient is rewritten to that inbox, the record stores both the intended and delivered address, and only demo leads can be emailed at all.
-- **Authentication is preserved** — CRM pages stay behind the session cookie. Optionally set `DEMO_LOGIN_EMAIL`/`DEMO_LOGIN_PASSWORD` for a dedicated demo account so a visitor can enter in one click; use a dedicated account that holds no real data.
-- **Rate limits** — sign-in, public inquiries, simulation, AI calls, drafts, emails and resets are all limited per address, configurable, with clear messages and a `Retry-After` header.
+- **Authentication and isolation** — CRM pages stay behind the session cookie. Create the public account with `python -m app.create_user --demo demo@example.com "Public Demo"`, then set matching server-side `DEMO_LOGIN_EMAIL`/`DEMO_LOGIN_PASSWORD` on the web host. The backend filters the lead list and rejects every real-lead detail or mutation for demo users, even when they guess an ID. Demo users can change pipeline status but cannot edit customer fields or delete leads, and lose CRM access when demo mode is off. Existing demo accounts created before migration 0003 remain ordinary users until explicitly marked `is_demo=true`; mark them before enabling one-click entry.
+- **Rate limits** — sign-in, public inquiries, simulation, AI calls, drafts, emails and resets have in-process per-address counters, with clear messages and a `Retry-After` header. Next.js server actions may appear to the API as one server address, so deploy as one API instance and verify the forwarded client address at the trusted proxy before claiming per-visitor limits. The shared bucket conservatively caps AI spend but can throttle visitors together.
 
 ---
 
@@ -268,7 +269,7 @@ POST   /api/demo/reset                  restore the demo state    (auth, demo mo
 ## Data model
 
 ```text
-users         id, email, password_hash, name, created_at
+users         id, email, password_hash, name, is_demo, created_at
 leads         id, inquiry_key, inquiry_fingerprint, name, email, phone, service_type,
               property_type, preferred_date, message, pipeline_stage, priority,
               is_demo, demo_scenario, created_at, updated_at
@@ -285,15 +286,16 @@ Activity types: `lead_created`, `status_changed`, `ai_classified`, `reply_genera
 
 - Secrets live in environment variables / the git-ignored `.env`; no key is exposed to the browser or committed.
 - Passwords use Argon2; sessions are signed, expiring tokens in an HTTP-only cookie.
-- All CRM endpoints require authentication; all public input is validated; database access goes through the ORM.
+- All CRM endpoints require authentication; demo users can access only synthetic leads; all public input is validated; database access goes through the ORM.
 - Email recipients are server-determined; the send endpoint rejects unknown fields outright.
 - Failure paths are visible rather than silent: AI and email failures are stored with a reason and offer a retry.
-- Rate-limit counters live in process memory, so a multi-instance deployment needs a shared store (Redis) instead.
+- Rate-limit counters live in process memory. A multi-instance deployment needs a shared limiter; a single-instance portfolio demo can use the current implementation after proxy-address verification.
 
 ## Known limitations
 
 - **PostgreSQL and Docker have not been run on this machine** (neither is installed). The schema, migrations and `alembic check` are verified on SQLite only.
-- **No real Resend delivery has been tested** — there is no API key or verified sending domain. Email behaviour is verified with mocked transports and the sandbox sink.
+- **No real Resend delivery has been tested.** Email behaviour is verified with mocked transports and the sandbox sink.
+- **Resend acceptance is not inbox delivery.** The API records a provider receipt as sent; downstream delivery and bounce handling are outside this MVP. The `log` transport reports captured, not delivered.
 - **Not deployed.** No public URL, no hosted database, no demo video yet.
 - Drag-and-drop was deliberately not built; the PRD's approved status dropdown is used instead.
 

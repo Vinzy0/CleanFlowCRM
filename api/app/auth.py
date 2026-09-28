@@ -47,6 +47,8 @@ def current_user(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(401, "Invalid or expired session")
+    if user.is_demo and not settings.flag("DEMO_MODE"):
+        raise HTTPException(403, "Demo workspace is disabled")
     return user
 
 

@@ -15,9 +15,9 @@ from .schemas import EmailSend, LeadCreate, LeadDetailRead, LeadRead, LeadUpdate
 app = FastAPI(title="CleanFlow CRM API")
 
 
-def lead_or_404(db: Session, lead_id: int) -> Lead:
+def lead_or_404(db: Session, lead_id: int, user: User) -> Lead:
     lead = db.get(Lead, lead_id)
-    if lead is None:
+    if lead is None or (user.is_demo and not lead.is_demo):
         raise HTTPException(404, "Lead not found")
     return lead
 
@@ -33,18 +33,22 @@ def email_response(outcome: EmailOutcome) -> dict:
     content = record.content or {}
     payload = {
         "status": record.status,
-        "delivered": outcome.delivered,
+        "delivered": outcome.delivered and not bool(content.get("sandboxed")),
+        "captured": outcome.delivered and bool(content.get("sandboxed")),
         "duplicate": outcome.duplicate,
         "email_type": content.get("email_type", ""),
         "to": content.get("to", ""),
         "delivered_to": content.get("delivered_to", ""),
         "redirected": bool(content.get("redirected")),
+        "sandboxed": bool(content.get("sandboxed")),
         "message": content.get("message", ""),
         "activity_id": record.id,
     }
     if outcome.duplicate:
         payload["message"] = "This email was already sent; it has not been sent again."
         return payload
+    if record.status == "pending":
+        raise HTTPException(409, "This email is already being sent. Refresh the lead before retrying.")
     if outcome.delivered:
         return payload
     raise HTTPException(
@@ -77,7 +81,7 @@ def login(payload: Login, request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/auth/me")
 def me(user: User = Depends(current_user)):
-    return {"id": user.id, "email": user.email, "name": user.name}
+    return {"id": user.id, "email": user.email, "name": user.name, "is_demo": user.is_demo}
 
 
 @app.post("/api/leads", response_model=LeadRead, status_code=status.HTTP_201_CREATED)
@@ -100,13 +104,16 @@ def create_lead(
 
 
 @app.get("/api/leads", response_model=list[LeadRead])
-def list_leads(db: Session = Depends(get_db), _: User = Depends(current_user)):
-    return db.scalars(select(Lead).order_by(Lead.created_at.desc(), Lead.id.desc())).all()
+def list_leads(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    query = select(Lead).order_by(Lead.created_at.desc(), Lead.id.desc())
+    if user.is_demo:
+        query = query.where(Lead.is_demo.is_(True))
+    return db.scalars(query).all()
 
 
 @app.get("/api/leads/{lead_id}", response_model=LeadDetailRead)
-def get_lead(lead_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    lead = lead_or_404(db, lead_id)
+def get_lead(lead_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    lead = lead_or_404(db, lead_id, user)
     activities = db.scalars(
         select(Activity).where(Activity.lead_id == lead_id).order_by(Activity.created_at, Activity.id)
     ).all()
@@ -128,11 +135,11 @@ def retry_classification(
     lead_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
     provider: AIProvider = Depends(get_ai_provider),
 ):
     ratelimit.enforce("classify", request)
-    lead = lead_or_404(db, lead_id)
+    lead = lead_or_404(db, lead_id, user)
     if leads.run_classification(db, lead, provider) is None:
         raise HTTPException(503, "AI analysis is unavailable; the lead was saved")
     return {"status": "completed"}
@@ -143,11 +150,11 @@ def create_draft_reply(
     lead_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
     provider: AIProvider = Depends(get_ai_provider),
 ):
     ratelimit.enforce("draft", request)
-    lead = lead_or_404(db, lead_id)
+    lead = lead_or_404(db, lead_id, user)
     try:
         draft = draft_reply(lead, provider)
     except AIProviderError:
@@ -169,12 +176,12 @@ def send_customer_reply(
     payload: EmailSend,
     request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
     provider: EmailProvider = Depends(get_email_provider),
 ):
     """Send the owner-approved reply. The recipient is always the lead's address."""
     ratelimit.enforce("email", request)
-    lead = lead_or_404(db, lead_id)
+    lead = lead_or_404(db, lead_id, user)
     config = email_settings()
     if config.demo_mode and not lead.is_demo:
         raise HTTPException(403, "The public demo can only email its own fake leads")
@@ -185,7 +192,7 @@ def send_customer_reply(
         subject=payload.subject,
         body=payload.body,
         intended_recipient=lead.email,
-        idempotency_key=customer_reply_key(lead.id, payload.subject, payload.body),
+        idempotency_key=customer_reply_key(lead.id, lead.email, payload.subject, payload.body),
         provider=provider,
     )
     return email_response(outcome)
@@ -196,11 +203,11 @@ def retry_owner_notification(
     lead_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
     provider: EmailProvider = Depends(get_email_provider),
 ):
     ratelimit.enforce("email", request)
-    lead = lead_or_404(db, lead_id)
+    lead = lead_or_404(db, lead_id, user)
     if email_settings().demo_mode and not lead.is_demo:
         raise HTTPException(403, "The public demo can only email its own fake leads")
     outcome = notify_owner(db, lead, provider)
@@ -211,16 +218,18 @@ def retry_owner_notification(
 
 @app.patch("/api/leads/{lead_id}/status", response_model=LeadRead)
 def change_status(
-    lead_id: int, payload: StatusChange, db: Session = Depends(get_db), _: User = Depends(current_user)
+    lead_id: int, payload: StatusChange, db: Session = Depends(get_db), user: User = Depends(current_user)
 ):
-    return leads.apply_status(db, lead_or_404(db, lead_id), payload.stage)
+    return leads.apply_status(db, lead_or_404(db, lead_id, user), payload.stage)
 
 
 @app.patch("/api/leads/{lead_id}", response_model=LeadRead)
 def update_lead(
-    lead_id: int, payload: LeadUpdate, db: Session = Depends(get_db), _: User = Depends(current_user)
+    lead_id: int, payload: LeadUpdate, db: Session = Depends(get_db), user: User = Depends(current_user)
 ):
-    lead = lead_or_404(db, lead_id)
+    lead = lead_or_404(db, lead_id, user)
+    if user.is_demo:
+        raise HTTPException(403, "Demo leads cannot be edited")
     for field, value in payload.model_dump(exclude_unset=True).items():
         if value is None:
             raise HTTPException(422, f"{field} cannot be null")
@@ -231,8 +240,10 @@ def update_lead(
 
 
 @app.delete("/api/leads/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_lead(lead_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    db.delete(lead_or_404(db, lead_id))
+def delete_lead(lead_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    if user.is_demo:
+        raise HTTPException(403, "Use demo reset to restore the workspace")
+    db.delete(lead_or_404(db, lead_id, user))
     db.commit()
 
 

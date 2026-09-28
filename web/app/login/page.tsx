@@ -1,5 +1,6 @@
 import { signIn, signInAsDemo } from "@/app/actions";
 import SubmitButton from "@/app/submit-button";
+import { getPublicConfig } from "@/lib/api";
 
 const MESSAGES: Record<string, string> = {
   credentials: "Email or password was incorrect. Try again.",
@@ -10,14 +11,20 @@ const MESSAGES: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
+  const config = await getPublicConfig();
   const demoEmail = (process.env.DEMO_LOGIN_EMAIL ?? "").trim();
-  const demoReady = Boolean(demoEmail && (process.env.DEMO_LOGIN_PASSWORD ?? "").trim());
+  const demoReady = Boolean(config?.demo_mode && demoEmail && (process.env.DEMO_LOGIN_PASSWORD ?? "").trim());
+  const emailNote = config?.email_delivery === "redirected"
+    ? "Any email is redirected to a controlled demo inbox."
+    : config?.email_delivery === "sandbox"
+      ? "Email is captured in a sandbox outbox."
+      : "Email delivery is disabled in this demo.";
   return <main className="message-page"><div className="login-card">
     <h1>Business sign in</h1>
     <p>Access your cleaning inquiries.</p>
     {error && <p role="alert" className="error">{MESSAGES[error] ?? "Sign in failed. Please try again."}</p>}
     {demoReady && <div className="demo-hint">
-      <p role="note">Public demo workspace. It contains fake customer data only, and any email is redirected to a controlled demo inbox instead of a real address.</p>
+      <p role="note">Public demo workspace. It contains fake customer data only. {emailNote}</p>
       <form action={signInAsDemo}><SubmitButton label="Enter demo workspace" pendingLabel="Opening…" /></form>
     </div>}
     <form action={signIn} className="stacked-form">

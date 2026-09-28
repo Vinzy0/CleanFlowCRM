@@ -28,12 +28,13 @@ export function AiStatusChip({ status }: { status: string | null }) {
 
 const EMAIL_LABELS: Record<string, string> = {
   sent: "Sent",
+  captured: "Captured in sandbox",
   failed: "Failed",
   pending: "Sending",
 };
 
 export function EmailStatusChip({ status }: { status: string | null }) {
-  const tone = status === "sent" ? "email-sent" : status === "failed" ? "email-failed" : status === "pending" ? "email-pending" : "neutral";
+  const tone = status === "sent" || status === "captured" ? "email-sent" : status === "failed" ? "email-failed" : status === "pending" ? "email-pending" : "neutral";
   return <span className={`chip ${tone}`}>{status ? (EMAIL_LABELS[status] ?? status) : "Not sent"}</span>;
 }
 

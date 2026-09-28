@@ -232,7 +232,9 @@ def test_http_errors_are_not_retried():
 
 def test_attempt_budget_is_configurable_from_the_environment(monkeypatch):
     monkeypatch.setenv("OPENROUTER_MAX_ATTEMPTS", "4")
-    assert OpenRouterProvider(key="").attempts == 4
+    assert OpenRouterProvider(key="").attempts == 2
+    monkeypatch.setenv("OPENROUTER_MAX_ATTEMPTS", "1")
+    assert OpenRouterProvider(key="").attempts == 1
     monkeypatch.setenv("OPENROUTER_MAX_ATTEMPTS", "not-a-number")
     assert OpenRouterProvider(key="").attempts == 2
 

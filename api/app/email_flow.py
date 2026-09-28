@@ -42,9 +42,9 @@ def owner_notification_key(lead_id: int) -> str:
     return hashlib.sha256(f"owner-notification:{lead_id}".encode()).hexdigest()
 
 
-def customer_reply_key(lead_id: int, subject: str, body: str) -> str:
-    """Same lead, subject and body -> same key -> one delivery."""
-    digest = hashlib.sha256(f"{lead_id}\n{subject}\n{body}".encode()).hexdigest()
+def customer_reply_key(lead_id: int, recipient: str, subject: str, body: str) -> str:
+    """Same lead, recipient, subject and body -> one delivery."""
+    digest = hashlib.sha256(f"{lead_id}\n{recipient.lower()}\n{subject}\n{body}".encode()).hexdigest()
     return digest
 
 
@@ -98,6 +98,8 @@ def tracked_email(
     record = db.scalar(select(Activity).where(Activity.idempotency_key == idempotency_key))
     if record is not None and record.status == "sent":
         return EmailOutcome(activity=record, delivered=False, duplicate=True)
+    if record is not None and record.status == "pending":
+        return EmailOutcome(activity=record, delivered=False)
     config = email_settings()
     delivered_to = config.resolve_recipient(intended_recipient)
     blocked = "disabled" if config.demo_mode and not config.demo_override else None
@@ -110,6 +112,7 @@ def tracked_email(
         intended_recipient=intended_recipient,
         delivered_to=delivered_to,
         blocked=blocked,
+        sandboxed=config.transport == "log",
     )
     return EmailOutcome(activity=record, delivered=record.status == "sent")
 
@@ -181,6 +184,7 @@ def _attempt(
     intended_recipient: str,
     delivered_to: str,
     blocked: str | None,
+    sandboxed: bool,
 ) -> Activity:
     redirected = delivered_to != intended_recipient
     record.type = "email_sent"
@@ -190,6 +194,7 @@ def _attempt(
         "to": intended_recipient,
         "delivered_to": delivered_to,
         "redirected": redirected,
+        "sandboxed": sandboxed,
         "subject": subject,
     }
     db.commit()
@@ -198,7 +203,10 @@ def _attempt(
             db, record, subject, blocked, "Email sending is disabled in the public demo.", intended_recipient, delivered_to
         )
     try:
-        provider_id = provider.send(EmailMessage(to=delivered_to, subject=subject, body=body))
+        provider_key = hashlib.sha256(
+            f"{record.idempotency_key}\n{delivered_to}\n{subject}\n{body}".encode()
+        ).hexdigest()
+        provider_id = provider.send(EmailMessage(to=delivered_to, subject=subject, body=body, idempotency_key=provider_key))
     except EmailNotConfiguredError:
         return _failed(
             db,

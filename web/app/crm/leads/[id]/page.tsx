@@ -32,6 +32,7 @@ function activityDescription(activity: Activity) {
     case "reply_generated":
       return activity.status === "completed" ? "Draft reply generated" : "Draft reply generation failed";
     case "email_sent":
+      if (content.sandboxed) return "Email captured in the sandbox outbox";
       return content.email_type === "owner_notification"
         ? "Owner notified by email"
         : `Email sent to ${content.to ?? "the customer"}${content.redirected ? " (demo inbox)" : ""}`;
@@ -65,6 +66,8 @@ export default async function LeadDetailPage({ params, searchParams }: {
   const classification = latestClassification(lead.activities);
   const ownerNotification = latestEmail(lead.activities, "owner_notification");
   const customerReply = latestEmail(lead.activities, "customer_reply");
+  const ownerEmailStatus = ownerNotification?.status === "sent" && ownerNotification.content.sandboxed ? "captured" : ownerNotification?.status ?? null;
+  const customerEmailStatus = customerReply?.status === "sent" && customerReply.content.sandboxed ? "captured" : customerReply?.status ?? null;
   const analysisFailed = classification?.status === "failed";
 
   return <main className="lead-detail">
@@ -91,14 +94,14 @@ export default async function LeadDetailPage({ params, searchParams }: {
       <section className="detail-panel"><h2>AI analysis</h2>{lead.analysis ? <><div className="chip-row"><AiStatusChip status={classification?.status ?? "completed"} /><span className="chip neutral">{lead.analysis.service_category}</span><PriorityChip priority={lead.analysis.priority} /></div><dl className="detail-list"><div><dt>Summary</dt><dd className="summary-text">{lead.analysis.summary}</dd></div><div><dt>Category</dt><dd>{lead.analysis.service_category}</dd></div><div><dt>Priority</dt><dd>{lead.analysis.priority}</dd></div><div><dt>Why</dt><dd>{lead.analysis.classification_rationale}</dd></div>{lead.analysis.matched_priority_rules.length > 0 && <div><dt>Matched rules</dt><dd>{lead.analysis.matched_priority_rules.join("; ")}</dd></div>}<div><dt>Model</dt><dd className="muted-copy">{lead.analysis.model}</dd></div></dl></> : <div className="analysis-empty"><AiStatusChip status={classification?.status ?? null} /><p className="muted-copy">No AI analysis is stored for this lead yet. The inquiry remains saved and can be retried from Actions.</p><form action={retryClassification.bind(null, lead.id)}><SubmitButton label="Run AI analysis" pendingLabel="Analysing…" /></form></div>}</section>
 
       {draft !== null ? (
-        <EmailPanel leadId={lead.id} customerName={lead.name} customerEmail={lead.email} delivery={config.email_delivery} defaultSubject={`Re: your ${lead.service_type} request`} defaultBody={draft} lastStatus={customerReply?.status ?? null} lastMessage={String(customerReply?.content.message ?? "")} />
+        <EmailPanel key={draft} leadId={lead.id} customerName={lead.name} customerEmail={lead.email} delivery={config.email_delivery} defaultSubject={`Re: your ${lead.service_type} request`} defaultBody={draft} lastStatus={customerEmailStatus} lastMessage={String(customerReply?.content.message ?? "")} />
       ) : (
         <section className="detail-panel"><div className="panel-heading-row"><div><h2>Reply to customer</h2><p className="muted-copy">Generate a draft reply, then edit it before sending. Emails are never sent automatically.</p></div><EmailStatusChip status={customerReply?.status ?? null} /></div>{customerReply?.status === "failed" && <p role="alert" className="error">Last send failed: {String(customerReply.content.message ?? "")}</p>}<form action={generateDraftReply.bind(null, lead.id)}><SubmitButton label="Draft reply" pendingLabel="Drafting…" /></form></section>
       )}
     </div><div className="detail-secondary">
       <section className="detail-panel"><h2>CRM</h2><dl className="detail-list"><div><dt>Current stage</dt><dd><span className="stage">{lead.pipeline_stage}</span></dd></div><div><dt>Created</dt><dd>{formatDateTime(lead.created_at)}</dd></div><div><dt>Last updated</dt><dd>{formatDateTime(lead.updated_at)}</dd></div></dl><div className="status-control"><h3>Change status</h3><StatusForm leadId={lead.id} customerName={lead.name} currentStage={lead.pipeline_stage} stages={config.pipeline_stages} returnTo="detail" /></div></section>
 
-      <section className="detail-panel"><h2>Email</h2><dl className="detail-list"><div><dt>Owner notice</dt><dd><EmailStatusChip status={ownerNotification?.status ?? null} />{ownerNotification?.status === "failed" && <span className="muted-copy"> {String(ownerNotification.content.message ?? "")}</span>}</dd></div><div><dt>Customer reply</dt><dd><EmailStatusChip status={customerReply?.status ?? null} />{customerReply?.content.delivered_to && <span className="muted-copy"> → {String(customerReply.content.delivered_to)}</span>}</dd></div></dl></section>
+      <section className="detail-panel"><h2>Email</h2><dl className="detail-list"><div><dt>Owner notice</dt><dd><EmailStatusChip status={ownerEmailStatus} />{ownerNotification?.status === "failed" && <span className="muted-copy"> {String(ownerNotification.content.message ?? "")}</span>}</dd></div><div><dt>Customer reply</dt><dd><EmailStatusChip status={customerEmailStatus} />{customerReply?.content.delivered_to && <span className="muted-copy"> → {String(customerReply.content.delivered_to)}</span>}</dd></div></dl></section>
 
       <section className="detail-panel"><h2>Activity history</h2>{lead.activities.length === 0 ? <p className="muted-copy">No activity recorded yet.</p> : <ol className="timeline">{lead.activities.map((activity) => <li key={activity.id}><strong>{activityDescription(activity)}</strong><time dateTime={activity.created_at}>{formatDateTime(activity.created_at)}</time></li>)}</ol>}</section>
     </div></div>

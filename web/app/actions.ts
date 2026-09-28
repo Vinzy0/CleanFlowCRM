@@ -111,6 +111,13 @@ export async function signInAsDemo() {
     redirect(response?.status === 429 ? "/login?error=rate" : "/login?error=demo");
   }
   const { access_token } = await response.json();
+  const [userResponse, configResponse] = await Promise.all([
+    api("/api/auth/me", { headers: { Authorization: `Bearer ${access_token}` } }).catch(() => null),
+    api("/api/config").catch(() => null),
+  ]);
+  if (!userResponse?.ok || !(await userResponse.json()).is_demo || !configResponse?.ok || !(await configResponse.json()).demo_mode) {
+    redirect("/login?error=demo");
+  }
   await setSession(access_token);
   redirect("/crm");
 }
@@ -182,11 +189,16 @@ export async function sendLeadEmail(leadId: number, previous: EmailState, form: 
     refreshCrm(leadId);
     const duplicate = Boolean(body?.duplicate);
     const redirected = Boolean(body?.redirected);
+    const sandboxed = Boolean(body?.sandboxed);
     const notice = duplicate
       ? "This exact reply was already sent, so nothing was sent again."
       : redirected
-        ? `Sent to the controlled demo inbox (${body?.delivered_to}) instead of the customer address ${body?.to}.`
-        : `Email sent to ${body?.to}.`;
+        ? sandboxed
+          ? `Captured in the sandbox outbox for the controlled demo inbox (${body?.delivered_to}).`
+          : `Sent to the controlled demo inbox (${body?.delivered_to}) instead of the customer address ${body?.to}.`
+        : sandboxed
+          ? `Captured in the sandbox outbox for ${body?.to}; no email was delivered.`
+          : `Email sent to ${body?.to}.`;
     return { error: "", notice, duplicate };
   }
   if (response.status === 422) {

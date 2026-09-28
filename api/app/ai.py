@@ -66,7 +66,8 @@ class OpenRouterProvider:
         # failed classification. HTTP and configuration errors are never retried.
         configured = os.getenv("OPENROUTER_MAX_ATTEMPTS")
         try:
-            self.attempts = max(1, attempts if attempts is not None else int(configured or DEFAULT_ATTEMPTS))
+            requested = attempts if attempts is not None else int(configured or DEFAULT_ATTEMPTS)
+            self.attempts = min(DEFAULT_ATTEMPTS, max(1, requested))
         except ValueError:
             self.attempts = DEFAULT_ATTEMPTS
 

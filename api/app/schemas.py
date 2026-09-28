@@ -7,7 +7,7 @@ from .business import BUSINESS
 
 
 class LeadCreate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     inquiry_key: str = Field(min_length=16, max_length=64)
     name: str = Field(min_length=2, max_length=120)
@@ -17,6 +17,13 @@ class LeadCreate(BaseModel):
     property_type: str
     preferred_date: date
     message: str = Field(min_length=10, max_length=5000)
+
+    @field_validator("name")
+    @classmethod
+    def single_line_name(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError("Name must be one line")
+        return value
 
     @field_validator("inquiry_key")
     @classmethod
@@ -42,7 +49,7 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     name: str | None = Field(default=None, min_length=2, max_length=120)
     email: EmailStr | None = None
@@ -51,6 +58,13 @@ class LeadUpdate(BaseModel):
     property_type: str | None = None
     preferred_date: date | None = None
     message: str | None = Field(default=None, min_length=10, max_length=5000)
+
+    @field_validator("name")
+    @classmethod
+    def single_line_name(cls, value: str | None) -> str | None:
+        if value is not None and ("\r" in value or "\n" in value):
+            raise ValueError("Name must be one line")
+        return value
 
     @field_validator("service_type")
     @classmethod
@@ -135,7 +149,14 @@ class EmailSend(BaseModel):
     subject: str = Field(min_length=3, max_length=200)
     body: str = Field(min_length=10, max_length=5000)
 
+    @field_validator("subject")
+    @classmethod
+    def single_line_subject(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError("Subject must be one line")
+        return value
+
 
 class Login(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=256)

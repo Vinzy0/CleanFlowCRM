@@ -13,6 +13,8 @@ from app.email import (
     get_email_provider,
 )
 from app.main import app
+from app.email_flow import customer_reply_key
+from app.models import Activity
 
 
 def settings_with(**overrides) -> EmailSettings:
@@ -104,6 +106,51 @@ def test_recipient_cannot_be_chosen_by_the_client(crm, fake_email_provider):
     accepted = crm.client.post(f"/api/leads/{lead['id']}/send-email", headers=crm.headers, json=body)
     assert accepted.status_code == 200
     assert [message.to for message in fake_email_provider.calls] == ["owner.inbox@example.com", lead["email"]]
+
+
+def test_subject_rejects_header_newlines(crm, fake_email_provider):
+    lead = crm.new_lead()
+    calls_before = len(fake_email_provider.calls)
+    response = crm.client.post(f"/api/leads/{lead['id']}/send-email", headers=crm.headers,
+                               json={"subject": "Hello\r\nBcc: outsider@example.com", "body": "Thanks for reaching out."})
+    assert response.status_code == 422
+    assert len(fake_email_provider.calls) == calls_before
+
+
+def test_inquiry_name_cannot_inject_owner_subject(crm, fake_email_provider):
+    rejected = crm.client.post("/api/leads", json=crm.inquiry(name="Morgan\r\nBcc: outsider@example.com"))
+    assert rejected.status_code == 422
+    assert fake_email_provider.calls == []
+    lead = crm.new_lead()
+    update = crm.client.patch(f"/api/leads/{lead['id']}", headers=crm.headers,
+                              json={"name": "Morgan\nBcc: outsider@example.com"})
+    assert update.status_code == 422
+
+
+def test_corrected_lead_address_allows_same_reply_to_new_recipient(crm, fake_email_provider):
+    lead = crm.new_lead()
+    body = {"subject": "Re: cleaning", "body": "Thanks for reaching out about your cleaning."}
+    url = f"/api/leads/{lead['id']}"
+    assert crm.client.post(f"{url}/send-email", headers=crm.headers, json=body).status_code == 200
+    assert crm.client.patch(url, headers=crm.headers, json={"email": "corrected@example.com"}).status_code == 200
+    resent = crm.client.post(f"{url}/send-email", headers=crm.headers, json=body)
+    assert resent.status_code == 200
+    assert resent.json()["duplicate"] is False
+    assert [message.to for message in fake_email_provider.calls[-2:]] == [lead["email"], "corrected@example.com"]
+
+
+def test_pending_send_cannot_call_provider_twice(crm, fake_email_provider):
+    lead = crm.new_lead()
+    body = {"subject": "Re: cleaning", "body": "Thanks for reaching out about your cleaning."}
+    with crm.session() as db:
+        db.add(Activity(lead_id=lead["id"], type="email_sent", status="pending",
+                        idempotency_key=customer_reply_key(lead["id"], lead["email"], body["subject"], body["body"]),
+                        content={"email_type": "customer_reply", "attempts": 1}))
+        db.commit()
+    calls_before = len(fake_email_provider.calls)
+    response = crm.client.post(f"/api/leads/{lead['id']}/send-email", headers=crm.headers, json=body)
+    assert response.status_code == 409
+    assert len(fake_email_provider.calls) == calls_before
 
 
 def test_duplicate_send_is_suppressed_and_edits_are_new_sends(crm, fake_email_provider):
@@ -223,11 +270,12 @@ def test_resend_adapter_payload_and_receipt():
             config=settings_with(api_key="test-key", sender="Acme Cleaning <no-reply@example.com>"),
             client=client,
         )
-        receipt = provider.send(EmailMessage(to="customer@example.com", subject="Hello", body="Body text"))
+        receipt = provider.send(EmailMessage(to="customer@example.com", subject="Hello", body="Body text", idempotency_key="send-123"))
     assert receipt == "provider-message-id"
     request = requests[0]
     assert str(request.url) == "https://api.resend.com/emails"
     assert request.headers["Authorization"] == "Bearer test-key"
+    assert request.headers["Idempotency-Key"] == "send-123"
     body = json.loads(request.content)
     assert body["from"] == "Acme Cleaning <no-reply@example.com>"
     assert body["to"] == ["customer@example.com"]
@@ -258,6 +306,13 @@ def test_resend_adapter_does_not_expose_provider_errors():
     assert "sk-live-123" not in str(error.value)
 
 
+def test_resend_adapter_requires_a_message_receipt():
+    with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))) as client:
+        provider = ResendProvider(config=settings_with(api_key="test-key", sender="Acme <a@example.com>"), client=client)
+        with pytest.raises(EmailProviderError):
+            provider.send(EmailMessage(to="customer@example.com", subject="Hello", body="Body"))
+
+
 def test_sandbox_transport_records_mail_without_a_contract(crm, monkeypatch, tmp_path):
     """The log transport is a documented sandbox; it must never need a provider key."""
     outbox = tmp_path / "outbox.jsonl"
@@ -273,7 +328,9 @@ def test_sandbox_transport_records_mail_without_a_contract(crm, monkeypatch, tmp
         json={"subject": "Re: your cleaning request", "body": "Thanks for reaching out about your cleaning."},
     )
     assert response.status_code == 200
-    assert response.json()["delivered"] is True
+    assert response.json()["delivered"] is False
+    assert response.json()["captured"] is True
+    assert response.json()["sandboxed"] is True
     records = [json.loads(line) for line in outbox.read_text(encoding="utf-8").splitlines()]
     assert [record["to"] for record in records] == ["owner.inbox@example.com", lead["email"]]
     assert records[-1]["subject"] == "Re: your cleaning request"

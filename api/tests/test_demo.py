@@ -2,6 +2,8 @@
 
 from app.business import BUSINESS
 from app.demo import SCENARIOS, SEED_STAGES
+from app.auth import password_hash
+from app.models import User
 
 
 def demo_detail(crm, lead_id):
@@ -88,6 +90,54 @@ def test_demo_reset_deletes_only_demo_records(crm, monkeypatch):
     assert real_lead["id"] in [lead["id"] for lead in leads]
     assert [lead["is_demo"] for lead in leads].count(False) == 1
     assert demo_detail(crm, real_lead["id"])["activities"][0]["type"] == "lead_created"
+
+
+def test_demo_user_cannot_read_or_mutate_real_leads(crm, monkeypatch, fake_email_provider):
+    real = crm.new_lead()
+    enable_demo(monkeypatch)
+    simulated = simulate(crm).json()["lead_id"]
+    with crm.session() as db:
+        db.add(User(email="demo@example.com", name="Demo", is_demo=True,
+                    password_hash=password_hash.hash("demo-password-123")))
+        db.commit()
+    login = crm.client.post("/api/auth/login", json={"email": "demo@example.com", "password": "demo-password-123"})
+    demo_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    assert crm.client.get("/api/auth/me", headers=demo_headers).json()["is_demo"] is True
+    assert [lead["id"] for lead in crm.client.get("/api/leads", headers=demo_headers).json()] == [simulated]
+    url = f"/api/leads/{real['id']}"
+    requests = [
+        crm.client.get(url, headers=demo_headers),
+        crm.client.patch(url, headers=demo_headers, json={"name": "Changed Name"}),
+        crm.client.patch(f"{url}/status", headers=demo_headers, json={"stage": "Completed"}),
+        crm.client.post(f"{url}/classify", headers=demo_headers),
+        crm.client.post(f"{url}/draft-reply", headers=demo_headers),
+        crm.client.post(f"{url}/notify-owner", headers=demo_headers),
+        crm.client.post(f"{url}/send-email", headers=demo_headers,
+                        json={"subject": "Hello", "body": "A message to the customer"}),
+        crm.client.delete(url, headers=demo_headers),
+    ]
+    assert [response.status_code for response in requests] == [404] * (len(requests) - 1) + [403]
+    assert demo_detail(crm, real["id"])["name"] == real["name"]
+    assert crm.client.get(f"/api/leads/{simulated}", headers=demo_headers).status_code == 200
+    assert crm.client.patch(f"/api/leads/{simulated}/status", headers=demo_headers,
+                            json={"stage": "Contacted"}).status_code == 200
+    assert crm.client.patch(f"/api/leads/{simulated}", headers=demo_headers,
+                            json={"email": "outsider@example.com"}).status_code == 403
+    assert crm.client.delete(f"/api/leads/{simulated}", headers=demo_headers).status_code == 403
+    assert demo_detail(crm, simulated)["email"].endswith("@example.com")
+    monkeypatch.setenv("DEMO_MODE", "false")
+    assert crm.client.get("/api/auth/me", headers=demo_headers).status_code == 403
+    assert crm.client.get("/api/leads", headers=demo_headers).status_code == 403
+    assert [message.to for message in fake_email_provider.calls] == ["owner.inbox@example.com", "demo.inbox@example.com"]
+
+
+def test_public_requests_cannot_mark_a_lead_as_demo(crm):
+    tampered = crm.client.post("/api/leads", json=crm.inquiry(is_demo=True))
+    assert tampered.status_code == 422
+    real = crm.new_lead()
+    update = crm.client.patch(f"/api/leads/{real['id']}", headers=crm.headers, json={"is_demo": True})
+    assert update.status_code == 422
+    assert demo_detail(crm, real["id"])["is_demo"] is False
 
 
 def test_demo_reuses_stored_ai_results_instead_of_paying_twice(crm, monkeypatch, fake_provider):

@@ -12,6 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description="Create a CleanFlow CRM business user")
     parser.add_argument("email")
     parser.add_argument("name")
+    parser.add_argument("--demo", action="store_true", help="Restrict this account to demo leads")
     args = parser.parse_args()
     password = getpass("Password: ")
     if len(password) < 12:
@@ -19,7 +20,7 @@ def main():
     with SessionLocal() as db:
         if db.scalar(select(User).where(User.email == args.email.lower())):
             raise SystemExit("User already exists")
-        db.add(User(email=args.email.lower(), name=args.name, password_hash=password_hash.hash(password)))
+        db.add(User(email=args.email.lower(), name=args.name, is_demo=args.demo, password_hash=password_hash.hash(password)))
         db.commit()
     print("User created")
 
