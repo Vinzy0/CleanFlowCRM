@@ -45,7 +45,9 @@ All AI requests originate from the FastAPI backend and go to OpenRouter. Keep `O
 
 Creating an inquiry stores the lead first, then requests structured classification. If OpenRouter is not configured or a request fails, the lead remains saved with a failed `ai_classified` activity; an authenticated owner can retry from the lead detail page. Draft replies are stored as activity entries and shown in an editable text area. They are **never sent** by Phase 3. Keep this build local until the public demo AI limits and rate limiting in Phase 5 are implemented.
 
-Backend tests inject a fake AI provider and an HTTP mock transport. They neither need a key nor send live OpenRouter requests. The live OpenRouter workflow and PostgreSQL/Compose deployment can be checked separately when those services are available.
+Backend tests inject a fake AI provider and an HTTP mock transport. They neither need a key nor send live OpenRouter requests. Live provider and PostgreSQL/Compose checks are separate from the automated test suite.
+
+The backend requests OpenRouter JSON Schema responses with required parameter support and response healing. A manual check with the project key returned a valid classification and draft reply. PostgreSQL/Compose remains unverified on this machine.
 
 ## Web frontend
 

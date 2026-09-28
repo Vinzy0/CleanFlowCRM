@@ -117,6 +117,7 @@ def test_openrouter_adapter_uses_backend_endpoint_and_key_without_live_request()
     assert body["model"] == "deepseek/deepseek-v4.1-flash"
     assert body["response_format"]["type"] == "json_schema"
     assert body["provider"]["require_parameters"] is True
+    assert body["plugins"] == [{"id": "response-healing"}]
 
 
 def test_openrouter_adapter_does_not_expose_provider_response():

@@ -52,7 +52,7 @@ class OpenRouterProvider:
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "temperature": 0.2,
-            "max_tokens": 700,
+            "max_tokens": 1500 if schema is not None else 700,
         }
         if schema is not None:
             payload["response_format"] = {
@@ -60,6 +60,7 @@ class OpenRouterProvider:
                 "json_schema": {"name": "cleanflow_classification", "strict": True, "schema": schema},
             }
             payload["provider"] = {"require_parameters": True}
+            payload["plugins"] = [{"id": "response-healing"}]
         try:
             if self.client is None:
                 with httpx.Client(timeout=30.0) as client:

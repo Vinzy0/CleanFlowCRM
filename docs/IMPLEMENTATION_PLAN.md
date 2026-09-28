@@ -65,3 +65,8 @@ The inquiry form stores a lead. AI processing and owner notification are not cla
 - Inquiry creation commits the lead before requesting AI analysis. Structured output is checked against configured service categories, priority labels, and priority rules, then summary/rationale and model ID are stored. Failed analysis keeps the lead and a failed activity; the lead page offers an authenticated retry. Draft replies are generated on request, recorded in activity, and shown in an editable text area without sending email.
 - Verified: seven backend tests with a fake provider or mock HTTP transport; TypeScript check; production web build; fresh SQLite migration and Alembic schema check. A local browser inquiry and lead-detail smoke test displayed a stored classification through OpenRouter because the local API process inherited an existing key. Live draft generation and PostgreSQL/Compose remain unverified.
 - Owner notification and email sending remain Phase 4. Public demo rate limits and paid AI controls remain Phase 5; the app is still for local development.
+
+## OpenRouter credential verification (2026-09-28)
+
+- The project-local, ignored `.env` supplies the backend key and DeepSeek V4.1 Flash model for direct FastAPI runs. The secret is absent from tracked files and frontend assets.
+- A manual live call using that project key returned a valid structured classification and draft reply. The first structured attempt returned invalid JSON; the adapter now requests a larger response budget and OpenRouter's response-healing plugin. The mocked backend suite still makes no live requests.
