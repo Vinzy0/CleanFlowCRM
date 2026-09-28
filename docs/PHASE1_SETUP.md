@@ -41,7 +41,7 @@ Set the URL to your actual PostgreSQL database and credentials. The app reads en
 
 ## AI gateway and local behavior
 
-All AI requests originate from the FastAPI backend and go to OpenRouter. Keep `OPENROUTER_API_KEY` in backend environment variables or a local untracked `.env` file; never put it in `web/.env.local` or a `NEXT_PUBLIC_` variable. The backend-only OpenRouter endpoint and model routing live in `api/app/ai.py`. OpenRouter currently lists DeepSeek V4.1 Flash under the slug above; check the OpenRouter catalog if the slug changes.
+All AI requests originate from the FastAPI backend and go to OpenRouter. Keep `OPENROUTER_API_KEY` in backend environment variables or the project root's untracked `.env` file; never put it in `web/.env.local` or a `NEXT_PUBLIC_` variable. For direct local FastAPI runs, the backend reads the root `.env` key and model before inherited machine settings. Production containers receive both through their backend environment. If `OPENROUTER_MODEL` is unset, the DeepSeek V4.1 Flash slug is the default. The backend-only endpoint and model routing live in `api/app/ai.py`.
 
 Creating an inquiry stores the lead first, then requests structured classification. If OpenRouter is not configured or a request fails, the lead remains saved with a failed `ai_classified` activity; an authenticated owner can retry from the lead detail page. Draft replies are stored as activity entries and shown in an editable text area. They are **never sent** by Phase 3. Keep this build local until the public demo AI limits and rate limiting in Phase 5 are implemented.
 

@@ -3,9 +3,11 @@
 import json
 import os
 from datetime import date
+from pathlib import Path
 from typing import Any, Protocol
 
 import httpx
+from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .business import BUSINESS
@@ -14,6 +16,7 @@ from .models import Lead
 
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
+PROJECT_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
 class AIProviderError(Exception):
@@ -30,8 +33,16 @@ class AIProvider(Protocol):
 
 class OpenRouterProvider:
     def __init__(self, key: str | None = None, model: str | None = None, client: httpx.Client | None = None):
-        self.key = key if key is not None else os.getenv("OPENROUTER_API_KEY", "")
-        self.model = model or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
+        local_settings = dotenv_values(PROJECT_ENV) if PROJECT_ENV.is_file() else {}
+        # An explicit project key takes precedence over unrelated inherited machine settings.
+        self.key = (
+            key if key is not None
+            else local_settings.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY", "")
+        )
+        self.model = (
+            model or local_settings.get("OPENROUTER_MODEL")
+            or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
+        )
         self.client = client
 
     def _complete(self, system: str, user: str, schema: dict[str, Any] | None = None) -> str:

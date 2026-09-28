@@ -2,6 +2,7 @@ import json
 from uuid import uuid4
 
 import httpx
+import app.ai as ai_module
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -145,6 +146,16 @@ def test_openrouter_adapter_with_no_key_never_calls_transport():
     assert requests == []
 
 
-def test_openrouter_model_is_selected_from_backend_environment(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_MODEL", "deepseek/deepseek-v4.1-flash")
-    assert OpenRouterProvider(key="").model == "deepseek/deepseek-v4.1-flash"
+def test_openrouter_model_is_selected_from_backend_environment(monkeypatch, tmp_path):
+    monkeypatch.setattr(ai_module, "PROJECT_ENV", tmp_path / "missing.env")
+    monkeypatch.setenv("OPENROUTER_MODEL", "deepseek/configured-model")
+    assert OpenRouterProvider(key="").model == "deepseek/configured-model"
+
+
+def test_project_key_takes_precedence_for_direct_local_backend(monkeypatch, tmp_path):
+    local_env = tmp_path / ".env"
+    local_env.write_text("OPENROUTER_API_KEY=test-project-key\nOPENROUTER_MODEL=deepseek/deepseek-v4.1-flash\n")
+    monkeypatch.setattr(ai_module, "PROJECT_ENV", local_env)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "unrelated-inherited-key")
+    assert OpenRouterProvider().key == "test-project-key"
+    assert OpenRouterProvider().model == "deepseek/deepseek-v4.1-flash"
