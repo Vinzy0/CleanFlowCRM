@@ -9,5 +9,5 @@ web/node_modules/
 web/.next/
 web/tsconfig.tsbuildinfo
 
-api/email-outbox.jsonl
+api/*outbox.jsonl
 web/.env.local

@@ -16,11 +16,22 @@ from .models import Lead
 
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
+DEFAULT_ATTEMPTS = 2
+# Completion budgets must cover hidden reasoning tokens as well as the answer:
+# the configured model uses ~1700 reasoning tokens for a classification, and a
+# budget that is too small returns an empty completion with finish_reason=length.
+MAX_TOKENS_STRUCTURED = 4000
+MAX_TOKENS_TEXT = 2000
+MAX_TOKENS_CEILING = 8000
 PROJECT_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
 class AIProviderError(Exception):
     """Safe, provider-independent error; never contains a key or response body."""
+
+
+class _UnusableResponse(Exception):
+    """Internal: the provider answered, but unusably (empty or not a JSON object)."""
 
 
 class AIProvider(Protocol):
@@ -32,7 +43,13 @@ class AIProvider(Protocol):
 
 
 class OpenRouterProvider:
-    def __init__(self, key: str | None = None, model: str | None = None, client: httpx.Client | None = None):
+    def __init__(
+        self,
+        key: str | None = None,
+        model: str | None = None,
+        client: httpx.Client | None = None,
+        attempts: int | None = None,
+    ):
         local_settings = dotenv_values(PROJECT_ENV) if PROJECT_ENV.is_file() else {}
         # An explicit project key takes precedence over unrelated inherited machine settings.
         self.key = (
@@ -44,15 +61,23 @@ class OpenRouterProvider:
             or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
         )
         self.client = client
+        # OpenRouter occasionally returns an empty or unparsable completion for an
+        # otherwise valid request; one bounded retry keeps that from surfacing as a
+        # failed classification. HTTP and configuration errors are never retried.
+        configured = os.getenv("OPENROUTER_MAX_ATTEMPTS")
+        try:
+            self.attempts = max(1, attempts if attempts is not None else int(configured or DEFAULT_ATTEMPTS))
+        except ValueError:
+            self.attempts = DEFAULT_ATTEMPTS
 
-    def _complete(self, system: str, user: str, schema: dict[str, Any] | None = None) -> str:
+    def _post(self, system: str, user: str, schema: dict[str, Any] | None, max_tokens: int) -> str:
         if not self.key:
             raise AIProviderError("AI provider is not configured")
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "temperature": 0.2,
-            "max_tokens": 1500 if schema is not None else 700,
+            "max_tokens": max_tokens,
         }
         if schema is not None:
             payload["response_format"] = {
@@ -63,32 +88,50 @@ class OpenRouterProvider:
             payload["plugins"] = [{"id": "response-healing"}]
         try:
             if self.client is None:
-                with httpx.Client(timeout=30.0) as client:
+                with httpx.Client(timeout=60.0) as client:
                     response = client.post(OPENROUTER_CHAT_URL, json=payload, headers=self._headers())
             else:
                 response = self.client.post(OPENROUTER_CHAT_URL, json=payload, headers=self._headers())
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            choice = response.json()["choices"][0]
+            content = choice["message"]["content"]
+            finish_reason = choice.get("finish_reason")
         except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
             raise AIProviderError("AI provider request failed") from exc
         if not isinstance(content, str) or not content.strip():
-            raise AIProviderError("AI provider returned an empty response")
+            # A reasoning model spends completion tokens on hidden reasoning, so a
+            # finished-by-length answer arrives with no content at all.
+            reason = "the response budget was exhausted by reasoning tokens" if finish_reason == "length" else "empty response"
+            raise _UnusableResponse(f"AI provider returned no content ({reason})")
         return content.strip()
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.key}", "Content-Type": "application/json"}
 
     def structured(self, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
-        try:
-            result = json.loads(self._complete(system, user, schema))
-        except ValueError as exc:
-            raise AIProviderError("AI provider returned invalid structured data") from exc
-        if not isinstance(result, dict):
-            raise AIProviderError("AI provider returned invalid structured data")
-        return result
+        budget = MAX_TOKENS_STRUCTURED
+        failure: Exception | None = None
+        for _ in range(self.attempts):
+            try:
+                result = json.loads(self._post(system, user, schema, budget))
+                if isinstance(result, dict):
+                    return result
+                failure = _UnusableResponse("AI provider returned invalid structured data")
+            except (_UnusableResponse, ValueError) as exc:
+                failure = exc
+            budget = min(budget * 2, MAX_TOKENS_CEILING)
+        raise AIProviderError("AI provider returned invalid structured data") from failure
 
     def text(self, system: str, user: str) -> str:
-        return self._complete(system, user)
+        budget = MAX_TOKENS_TEXT
+        failure: Exception | None = None
+        for _ in range(self.attempts):
+            try:
+                return self._post(system, user, None, budget)
+            except _UnusableResponse as exc:
+                failure = exc
+            budget = min(budget * 2, MAX_TOKENS_CEILING)
+        raise AIProviderError("AI provider returned an empty response") from failure
 
 
 def get_ai_provider() -> AIProvider:

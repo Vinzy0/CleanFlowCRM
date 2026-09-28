@@ -161,3 +161,116 @@ def test_project_key_takes_precedence_for_direct_local_backend(monkeypatch, tmp_
     monkeypatch.setenv("OPENROUTER_API_KEY", "unrelated-inherited-key")
     assert OpenRouterProvider().key == "test-project-key"
     assert OpenRouterProvider().model == "deepseek/deepseek-v4.1-flash"
+
+
+def test_empty_provider_response_is_retried_once_then_succeeds():
+    """OpenRouter sometimes answers with an empty completion; one retry absorbs it."""
+    requests = []
+    payload = {"service_category": "Deep Cleaning", "priority": "normal", "summary": ["Ok"],
+               "matched_priority_rules": [], "classification_rationale": "No listed criteria apply."}
+
+    def respond(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "   "}}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(payload)}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client)
+        assert provider.structured("system", "user", {"type": "object"}) == payload
+    assert len(requests) == 2
+
+
+def test_persistently_unusable_responses_fail_within_the_attempt_budget():
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "not json at all"}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client, attempts=2)
+        try:
+            provider.structured("system", "user", {"type": "object"})
+            assert False, "Expected AIProviderError"
+        except AIProviderError as exc:
+            assert "not json" not in str(exc)
+    assert len(requests) == 2
+
+    requests.clear()
+
+    def respond_empty(request):
+        requests.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": ""}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond_empty)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client)
+        try:
+            provider.text("system", "user")
+            assert False, "Expected AIProviderError"
+        except AIProviderError:
+            pass
+    assert len(requests) == 2
+
+
+def test_http_errors_are_not_retried():
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(429, text="slow down")
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client, attempts=3)
+        try:
+            provider.structured("system", "user", {"type": "object"})
+            assert False, "Expected AIProviderError"
+        except AIProviderError:
+            pass
+    assert len(requests) == 1
+
+
+def test_attempt_budget_is_configurable_from_the_environment(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_MAX_ATTEMPTS", "4")
+    assert OpenRouterProvider(key="").attempts == 4
+    monkeypatch.setenv("OPENROUTER_MAX_ATTEMPTS", "not-a-number")
+    assert OpenRouterProvider(key="").attempts == 2
+
+
+def test_truncated_reasoning_response_is_retried_with_a_larger_budget():
+    """A reasoning model can burn the whole budget and return no content at all."""
+    import json as jsonlib
+    requests = []
+    payload = {"service_category": "Move-In / Move-Out", "priority": "high", "summary": ["Urgent move-out"],
+               "matched_priority_rules": ["Urgent move-out deadline"],
+               "classification_rationale": "The customer hands back the keys tomorrow."}
+
+    def respond(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(200, json={"choices": [{"message": {"content": ""}, "finish_reason": "length"}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": jsonlib.dumps(payload)}, "finish_reason": "stop"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client)
+        assert provider.structured("system", "user", {"type": "object"}) == payload
+    budgets = [jsonlib.loads(request.content)["max_tokens"] for request in requests]
+    assert len(requests) == 2
+    assert budgets[1] > budgets[0], budgets
+
+
+def test_completion_budgets_leave_room_for_reasoning_tokens():
+    import json as jsonlib
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"ok": true}'}, "finish_reason": "stop"}]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        provider = OpenRouterProvider(key="test-secret", client=client)
+        provider.structured("system", "user", {"type": "object"})
+        provider.text("system", "user")
+    structured_budget, text_budget = (jsonlib.loads(request.content)["max_tokens"] for request in requests)
+    assert structured_budget >= 4000
+    assert text_budget >= 2000
