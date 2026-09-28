@@ -80,6 +80,7 @@ class LeadRead(BaseModel):
     message: str
     pipeline_stage: str
     priority: str | None
+    is_demo: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -120,6 +121,19 @@ class StatusChange(BaseModel):
         if value not in BUSINESS["pipeline_stages"]:
             raise ValueError("Choose a listed pipeline stage")
         return value
+
+
+class EmailSend(BaseModel):
+    """An owner-approved customer reply.
+
+    There is deliberately no recipient field: the backend always replies to the
+    lead's own address, so a public visitor can never pick a target.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    subject: str = Field(min_length=3, max_length=200)
+    body: str = Field(min_length=10, max_length=5000)
 
 
 class Login(BaseModel):

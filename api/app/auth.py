@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -9,6 +8,7 @@ from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from . import settings
 from .db import get_db
 from .models import User
 
@@ -18,7 +18,8 @@ bearer = HTTPBearer(auto_error=False)
 
 
 def secret() -> str:
-    value = os.getenv("JWT_SECRET", "")
+    # Process environment first, then the git-ignored project .env.
+    value = settings.env("JWT_SECRET", "") or ""
     if len(value) < 32:
         raise RuntimeError("JWT_SECRET must be at least 32 characters")
     return value

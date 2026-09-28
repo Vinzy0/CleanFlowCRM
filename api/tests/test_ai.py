@@ -57,8 +57,9 @@ def test_classification_persistence_and_draft_are_mocked(monkeypatch, fake_provi
         assert detail["analysis"]["matched_priority_rules"] == ["Immediate response requested"]
         assert detail["analysis"]["summary"] == "• Deep cleaning\n• Kitchen and bedrooms"
         assert detail["analysis"]["model"] == "test/mock-model"
-        assert [item["type"] for item in detail["activities"]] == ["lead_created", "ai_classified"]
+        assert [item["type"] for item in detail["activities"]] == ["lead_created", "ai_classified", "email_sent"]
         assert detail["activities"][1]["status"] == "completed"
+        assert detail["activities"][2]["content"]["email_type"] == "owner_notification"
         assert client.post(f"{detail_url}/draft-reply").status_code == 401
         draft = client.post(f"{detail_url}/draft-reply", headers=headers)
         assert draft.status_code == 200
@@ -80,7 +81,7 @@ def test_invalid_or_failed_classification_keeps_lead_and_allows_retry(monkeypatc
         detail_url = f"/api/leads/{lead_id}"
         detail = client.get(detail_url, headers=headers).json()
         assert detail["analysis"] is None
-        assert detail["activities"][-1]["status"] == "failed"
+        assert [item["status"] for item in detail["activities"] if item["type"] == "ai_classified"] == ["failed"]
         assert client.post(f"{detail_url}/classify").status_code == 401
         fake_provider.fail = True
         assert client.post(f"{detail_url}/classify", headers=headers).status_code == 503

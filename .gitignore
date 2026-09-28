@@ -8,3 +8,6 @@ api/.pytest_cache/
 web/node_modules/
 web/.next/
 web/tsconfig.tsbuildinfo
+
+api/email-outbox.jsonl
+web/.env.local

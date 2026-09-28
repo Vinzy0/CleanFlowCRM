@@ -1,7 +1,17 @@
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
+from fastapi.testclient import TestClient
+from uuid import uuid4
 
+from app import demo, ratelimit
 from app.ai import AIProviderError, get_ai_provider
+from app.auth import password_hash
+from app.db import Base, get_db
+from app.email import EmailProviderError, get_email_provider
 from app.main import app
+from app.models import User
 
 
 class FakeProvider:
@@ -32,9 +42,111 @@ class FakeProvider:
         return self.text_result
 
 
+class FakeEmailProvider:
+    """Stands in for Resend. Records messages and can be told to fail."""
+
+    def __init__(self):
+        self.calls = []
+        self.fail = False
+
+    def send(self, message):
+        self.calls.append(message)
+        if self.fail:
+            raise EmailProviderError("Mock email failure")
+        return f"mock-email-{len(self.calls)}"
+
+
 @pytest.fixture(autouse=True)
 def fake_provider():
     provider = FakeProvider()
     app.dependency_overrides[get_ai_provider] = lambda: provider
     yield provider
     app.dependency_overrides.pop(get_ai_provider, None)
+
+
+@pytest.fixture(autouse=True)
+def fake_email_provider():
+    provider = FakeEmailProvider()
+    app.dependency_overrides[get_email_provider] = lambda: provider
+    yield provider
+    app.dependency_overrides.pop(get_email_provider, None)
+
+
+@pytest.fixture(autouse=True)
+def isolated_configuration(monkeypatch):
+    """Keep every test offline and clear of another test's rate-limit counters."""
+    monkeypatch.setenv("RESEND_API_KEY", "test-resend-key")
+    monkeypatch.setenv("EMAIL_FROM", "Acme Cleaning Services <no-reply@example.com>")
+    monkeypatch.setenv("EMAIL_TRANSPORT", "resend")
+    monkeypatch.setenv("OWNER_NOTIFICATION_EMAIL", "owner.inbox@example.com")
+    monkeypatch.setenv("DEMO_EMAIL_OVERRIDE", "")
+    monkeypatch.setenv("DEMO_MODE", "")
+    for bucket in ratelimit.BUCKETS:
+        monkeypatch.setenv(f"RATE_LIMIT_{bucket.upper()}", "1000")
+    ratelimit.reset()
+    demo.clear_cached_classifications()
+    yield
+    ratelimit.reset()
+    demo.clear_cached_classifications()
+
+
+class Crm:
+    """Small harness: an in-memory CRM instance with an API client and a token."""
+
+    def __init__(self, client, engine, headers):
+        self.client = client
+        self.engine = engine
+        self.headers = headers
+        self.email = "owner@example.com"
+        self.password = "correct-password"
+
+    def session(self):
+        return Session(self.engine)
+
+    def inquiry(self, **overrides):
+        payload = {
+            "inquiry_key": str(uuid4()),
+            "name": "Morgan Lee",
+            "email": "morgan@example.com",
+            "phone": "+1 555 0100",
+            "service_type": "Deep Cleaning",
+            "property_type": "House",
+            "preferred_date": "2026-10-05",
+            "message": "Please clean the kitchen and bedrooms next week.",
+        }
+        payload.update(overrides)
+        return payload
+
+    def new_lead(self, **overrides):
+        response = self.client.post("/api/leads", json=self.inquiry(**overrides))
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    def login(self, password=None):
+        return self.client.post(
+            "/api/auth/login", json={"email": self.email, "password": password or self.password}
+        )
+
+
+@pytest.fixture
+def crm(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "cleanflow-test-secret-at-least-thirty-two-characters")
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+
+    def test_db():
+        with Session(engine) as db:
+            yield db
+
+    app.dependency_overrides[get_db] = test_db
+    with Session(engine) as db:
+        db.add(User(email="owner@example.com", name="Owner", password_hash=password_hash.hash("correct-password")))
+        db.commit()
+    client = TestClient(app)
+    token = client.post(
+        "/api/auth/login", json={"email": "owner@example.com", "password": "correct-password"}
+    ).json()["access_token"]
+    harness = Crm(client, engine, {"Authorization": f"Bearer {token}"})
+    yield harness
+    app.dependency_overrides.pop(get_db, None)
+    engine.dispose()

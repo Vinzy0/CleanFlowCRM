@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -35,6 +35,9 @@ class Lead(Base):
     message: Mapped[str] = mapped_column(Text)
     pipeline_stage: Mapped[str] = mapped_column(String(30), default="New")
     priority: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Demo records are the only rows the demo reset is allowed to delete.
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    demo_scenario: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=now_utc, onupdate=now_utc
@@ -65,4 +68,6 @@ class Activity(Base):
     type: Mapped[str] = mapped_column(String(40))
     status: Mapped[str] = mapped_column(String(20))
     content: Mapped[dict] = mapped_column(JSON, default=dict)
+    # One row per outbound email; a unique key makes duplicate sends impossible.
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
