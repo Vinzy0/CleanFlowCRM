@@ -70,3 +70,4 @@ The inquiry form stores a lead. AI processing and owner notification are not cla
 
 - The project-local, ignored `.env` supplies the backend key and DeepSeek V4.1 Flash model for direct FastAPI runs. The secret is absent from tracked files and frontend assets.
 - A manual live call using that project key returned a valid structured classification and draft reply. The first structured attempt returned invalid JSON; the adapter now requests a larger response budget and OpenRouter's response-healing plugin. The mocked backend suite still makes no live requests.
+- A local browser check using fake data then completed inquiry submission → saved lead → displayed AI analysis → generated editable draft reply → recorded `ai_classified` and `reply_generated` activities. The test used the project key through the backend. PostgreSQL/Compose remains unverified.
