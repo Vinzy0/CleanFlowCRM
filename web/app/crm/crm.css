@@ -98,3 +98,40 @@ body:has(.crm-shell) .public-header{display:none}
 @media(max-width:1200px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pipeline-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.crm-sidebar{min-height:auto}.workspace-title{margin:0}.crm-main{padding:38px 24px}.detail-grid{grid-template-columns:1fr}.pipeline-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.crm-sidebar{gap:12px}.crm-sidebar nav{width:100%;justify-content:space-between}.crm-sidebar nav a{flex:1;text-align:center;font-size:13px;padding:10px 5px}.sidebar-footer{margin-top:0}.crm-topline{gap:16px}.metric-grid{gap:10px}.metric-card{min-height:120px;padding:17px}.metric-card strong{font-size:35px}.section-heading{align-items:start;flex-direction:column}.recent-row{padding:14px;gap:10px}.recent-date{display:none}.recent-row .stage{min-width:auto}.pipeline-board{grid-template-columns:1fr}.pipeline-column{min-height:0}.column-empty{margin:24px 10px}.detail-heading{align-items:start;flex-direction:column}.detail-actions{flex-wrap:wrap}.detail-panel{padding:22px}.detail-list>div{grid-template-columns:1fr;gap:4px}}
+
+
+/* Phase 4-6: email, demo and status presentation */
+.notice{background:#e8f4ee;border:1px solid #bfe0cd;color:#166247;padding:12px 15px;border-radius:8px}
+.chip{display:inline-flex;align-items:center;border-radius:20px;background:#eef2ef;color:#4b6358;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.detail-heading+.chip-row{margin-bottom:18px}
+.chip.demo{background:#fdf1dc;color:#8a5b12;border:1px solid #f0dcb4}
+.chip.ai-completed,.chip.email-sent{background:#e1f0e8;color:#1a6b51}
+.chip.ai-failed,.chip.email-failed{background:#fdeceb;color:#9c3123}
+.chip.ai-pending,.chip.email-pending{background:#fdf5e3;color:#8a5b12}
+.priority{display:inline-flex;align-items:center;border-radius:20px;padding:4px 9px;font-size:12px;font-weight:700;white-space:nowrap;background:#eef2ef;color:#4b6358}
+.priority.high{background:#fde8e4;color:#a33522}
+.priority.normal{background:#e5efe9;color:#255b45}
+.priority.none{background:#f0f2f1;color:#6b8074}
+.demo-panel{margin-top:34px;display:flex;gap:24px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#173e35;color:#fff;border-radius:14px;padding:26px 28px}
+.demo-copy{max-width:660px;display:grid;gap:8px}
+.demo-copy h2{margin:0;font-size:20px;color:#fff}
+.demo-copy p{margin:0;font-size:14px;line-height:1.55;color:#cfe4da}
+.demo-copy .muted-copy{color:#9fc2b3}
+.demo-actions{display:flex;gap:10px;flex-wrap:wrap}
+.demo-actions .button-secondary{background:#e7f2ec;color:#174b3d}
+.topline-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.panel-heading-row{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}
+.panel-heading-row h2{margin:0 0 6px}
+.panel-heading-row .muted-copy{font-size:13px}
+.email-panel{background:#fff;border:1px solid #e0e9e3;border-radius:13px;padding:25px 28px;display:grid;gap:16px}
+.email-panel .draft-textarea{margin-top:0}
+.email-panel label{font-size:14px;font-weight:700}
+.email-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #e8eee9;padding-top:16px;flex-wrap:wrap}
+.email-footer .muted-copy{font-size:13px}
+.metric-card small{font-size:12px;color:#6c8075}
+.recent-facts{margin-left:auto;display:flex;gap:8px;align-items:center}
+.recent-row .recent-date{margin-left:12px}
+.card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:800px){.demo-panel{padding:22px}.email-panel{padding:22px}}
+@media(max-width:560px){.demo-actions,.topline-actions{width:100%}.demo-actions form{flex:1}.demo-actions .button{flex:1}.recent-facts{margin-left:0}.email-footer{align-items:stretch;flex-direction:column}.email-footer .button{width:100%}}
