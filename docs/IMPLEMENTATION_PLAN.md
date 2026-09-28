@@ -49,3 +49,11 @@ The inquiry form stores a lead. AI processing and owner notification are not cla
 - Fixed whitespace-only inquiry text passing validation, duplicate-key retries after a staff edit, lost form values after failed submission, misleading login/API outage messages, and an unusable inquiry form when service configuration is unavailable.
 - Added a local API Docker image, health-gated PostgreSQL Compose service, environment examples, and an exact PostgreSQL persistence check in [PHASE1_SETUP.md](PHASE1_SETUP.md).
 - Rechecked the API test, migration/schema check, TypeScript, production build, and browser flow from failed validation through successful inquiry, login, sign-out, and protected-route redirect. PostgreSQL execution remains pending because the required runtime is absent.
+- Git checkpoint: `5d496f1` (`Complete Phase 1 foundation and audit`).
+
+## Phase 2 progress (2026-09-28)
+
+- Implemented: dashboard counts and recent leads; four-stage Kanban-style pipeline with the PRD-approved status dropdown; complete lead detail; authenticated status endpoint; chronological activity timeline. The existing AI analysis table and a nullable detail response reserve the Phase 3 data shape without generating or displaying fake AI output.
+- Status changes update the lead and add a `status_changed` activity in one database transaction. Dashboard and pipeline pages read the current persisted state; a successful change refreshes their routes.
+- Verified in the browser: login → dashboard → pipeline → lead detail → change to Contacted → activity entry → pipeline placement → dashboard count → reload persistence. A second update from the pipeline moved the lead to Booked. Desktop and mobile layouts were inspected.
+- Before Phase 3: run the documented PostgreSQL/Compose verification when its runtime is available, then implement only the PRD's constrained classification, stored summary/rationale, and human-reviewed draft reply. Owner notification remains Phase 4.

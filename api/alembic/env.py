@@ -11,7 +11,9 @@ from app import models  # noqa: F401
 config = context.config
 if config.config_file_name is not None and config.get_section(config.config_ini_section, {}).get("loggers"):
     fileConfig(config.config_file_name)
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url")))
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 

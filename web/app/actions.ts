@@ -2,8 +2,9 @@
 
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, authenticatedApi } from "@/lib/api";
 
 export type InquiryState = { error: string; values: Record<string, string>; attempt: number };
 
@@ -20,7 +21,7 @@ export async function submitInquiry(previous: InquiryState, form: FormData): Pro
     return {
       error: response?.status === 422 ? "Check the form details and try again." : "We couldn’t save your request. Please try again.",
       values: payload,
-      attempt: previous.attempt + 1,
+      attempt: (previous.attempt ?? 0) + 1,
     };
   }
   redirect("/inquiry/success");
@@ -47,4 +48,20 @@ export async function signIn(form: FormData) {
 export async function signOut() {
   (await cookies()).delete("cleanflow_session");
   redirect("/login");
+}
+
+export async function changeStatus(leadId: number, returnTo: "pipeline" | "detail", form: FormData) {
+  const destination = returnTo === "pipeline" ? "/crm/pipeline" : `/crm/leads/${leadId}`;
+  const response = await authenticatedApi(`/api/leads/${leadId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stage: String(form.get("stage") ?? "") }),
+  }).catch(() => null);
+  if (response?.status === 401) redirect("/login");
+  if (!response?.ok) redirect(`${destination}?error=status`);
+  revalidatePath("/crm");
+  revalidatePath("/crm/pipeline");
+  revalidatePath("/crm/leads");
+  revalidatePath(`/crm/leads/${leadId}`);
+  redirect(destination);
 }

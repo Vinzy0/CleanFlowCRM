@@ -84,6 +84,44 @@ class LeadRead(BaseModel):
     updated_at: datetime
 
 
+class ActivityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    status: str
+    content: dict
+    created_at: datetime
+
+
+class AIAnalysisRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    service_category: str
+    priority: str
+    summary: str
+    matched_priority_rules: list[str]
+    classification_rationale: str
+    model: str
+    created_at: datetime
+
+
+class LeadDetailRead(LeadRead):
+    activities: list[ActivityRead]
+    analysis: AIAnalysisRead | None
+
+
+class StatusChange(BaseModel):
+    stage: str
+
+    @field_validator("stage")
+    @classmethod
+    def known_stage(cls, value: str) -> str:
+        if value not in BUSINESS["pipeline_stages"]:
+            raise ValueError("Choose a listed pipeline stage")
+        return value
+
+
 class Login(BaseModel):
     email: EmailStr
     password: str

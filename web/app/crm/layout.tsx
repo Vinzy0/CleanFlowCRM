@@ -1,13 +1,15 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { api, authenticatedApi, PublicConfig } from "@/lib/api";
 import { signOut } from "@/app/actions";
+import CrmNavigation from "./navigation";
+import "./crm.css";
 
 export default async function CrmLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const response = await authenticatedApi("/api/auth/me").catch(() => null);
-  if (!response?.ok) redirect("/login");
+  if (response?.status === 401) redirect("/login");
+  if (!response?.ok) return <main className="service-error"><h1>CRM temporarily unavailable</h1><p>We couldn’t connect to the lead service. Please refresh to try again.</p></main>;
   const user: { name: string; email: string } = await response.json();
-  const configResponse = await api("/api/config");
-  const config: PublicConfig = await configResponse.json();
-  return <div className="crm-shell"><aside className="crm-sidebar"><div className="workspace-title">{config.business_name}<br /><strong>Workspace</strong></div><nav aria-label="CRM navigation"><Link className="nav-active" href="/crm">Leads</Link><Link href="/inquiry">Inquiry form</Link></nav><div className="sidebar-footer"><span>{user.name}</span><form action={signOut}><button type="submit">Sign out</button></form></div></aside><div className="crm-main">{children}</div></div>;
+  const configResponse = await api("/api/config").catch(() => null);
+  const config: PublicConfig | null = configResponse?.ok ? await configResponse.json() : null;
+  return <div className="crm-shell"><aside className="crm-sidebar"><div className="workspace-title"><span>{config?.business_name ?? "CleanFlow CRM"}</span><strong>Workspace</strong></div><CrmNavigation /><div className="sidebar-footer"><span>{user.name}</span><form action={signOut}><button type="submit">Sign out</button></form></div></aside><div className="crm-main">{children}</div></div>;
 }
