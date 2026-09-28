@@ -22,7 +22,7 @@ Source of truth: [PRD.md](PRD.md). This plan records delivery order and verifica
 | --- | --- | --- |
 | 1 — Foundation | Authentication, schema/migration, lead CRUD, public inquiry form, protected CRM shell | User logs in/out; inquiry creates a lead; lead persists in PostgreSQL. Verify unauthorized reads fail, invalid inquiries fail, duplicate form retries do not create another lead, and created lead can be fetched. |
 | 2 — Core CRM | Dashboard counts/recent leads, pipeline, lead detail, status updates, activity timeline | Lead appears in pipeline; owner changes status; detail page and history exist. Test each stage transition and activity entry. |
-| 3 — AI | DeepSeek structured categories/priority, stored summary and rationale, draft reply | Fixed labels, rule-based priority, persisted analysis, editable suggested reply. Test structured parsing and failure state. |
+| 3 — AI | DeepSeek 4.1 through OpenRouter: structured categories/priority, stored summary and rationale, draft reply | Fixed labels, rule-based priority, persisted analysis, editable suggested reply. Mock the provider in tests; test structured parsing and failure state. |
 | 4 — Automation | Resend owner notification, human-approved customer email, failure/retry | Owner notified; email only after human approval; failed attempts logged and retryable. |
 | 5 — Demo Mode | Simulated fake inquiry, demo-safe AI/email, rate limits, reset | Visitor can simulate; AI use limited; arbitrary email blocked; reset restores fake data. |
 | 6 — Polish | Responsive/loading/error states, deployment, README, video | Public HTTPS app, setup instructions, 60–90 second video, full definition-of-done sequence. |
@@ -57,3 +57,11 @@ The inquiry form stores a lead. AI processing and owner notification are not cla
 - Status changes update the lead and add a `status_changed` activity in one database transaction. Dashboard and pipeline pages read the current persisted state; a successful change refreshes their routes.
 - Verified in the browser: login → dashboard → pipeline → lead detail → change to Contacted → activity entry → pipeline placement → dashboard count → reload persistence. A second update from the pipeline moved the lead to Booked. Desktop and mobile layouts were inspected.
 - Before Phase 3: run the documented PostgreSQL/Compose verification when its runtime is available, then implement only the PRD's constrained classification, stored summary/rationale, and human-reviewed draft reply. Owner notification remains Phase 4.
+
+## Phase 3 progress (2026-09-28)
+
+- The production AI gateway is OpenRouter. Backend-only `OPENROUTER_API_KEY` authenticates requests; `OPENROUTER_MODEL` defaults to the currently listed DeepSeek V4.1 Flash slug, `deepseek/deepseek-v4.1-flash`.
+- Business logic calls a small AI provider interface. The OpenRouter adapter owns the endpoint, transport, structured-response request, and credentials. Tests replace the provider and never use a live key.
+- Inquiry creation commits the lead before requesting AI analysis. Structured output is checked against configured service categories, priority labels, and priority rules, then summary/rationale and model ID are stored. Failed analysis keeps the lead and a failed activity; the lead page offers an authenticated retry. Draft replies are generated on request, recorded in activity, and shown in an editable text area without sending email.
+- Verified: seven backend tests with a fake provider or mock HTTP transport; TypeScript check; production web build; fresh SQLite migration and Alembic schema check. A local browser inquiry and lead-detail smoke test displayed a stored classification through OpenRouter because the local API process inherited an existing key. Live draft generation and PostgreSQL/Compose remain unverified.
+- Owner notification and email sending remain Phase 4. Public demo rate limits and paid AI controls remain Phase 5; the app is still for local development.

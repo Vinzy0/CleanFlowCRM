@@ -9,7 +9,7 @@ from app.main import app
 from app.models import Activity, Lead, User
 
 
-def test_phase_one_flow(monkeypatch):
+def test_phase_one_flow(monkeypatch, fake_provider):
     monkeypatch.setenv("JWT_SECRET", "phase-one-test-secret-at-least-thirty-two-characters")
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -51,6 +51,7 @@ def test_phase_one_flow(monkeypatch):
         assert created.status_code == 201
         lead_id = created.json()["id"]
         assert client.post("/api/leads", json=payload).json()["id"] == lead_id
+        assert len(fake_provider.calls) == 1
         assert client.post("/api/leads", json={**payload, "name": "Another Person"}).status_code == 409
         assert len(client.get("/api/leads", headers=headers).json()) == 1
         assert client.get(f"/api/leads/{lead_id}", headers=headers).json()["message"] == payload["message"]

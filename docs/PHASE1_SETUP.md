@@ -1,6 +1,6 @@
-# Phase 1 local setup and PostgreSQL verification
+# Local setup and PostgreSQL verification
 
-This phase provides the public inquiry form, owner authentication, a protected lead list, and lead CRUD endpoints. The [implementation plan](IMPLEMENTATION_PLAN.md) assigns AI and email to later phases.
+The app provides inquiries, owner authentication, the CRM, and Phase 3 AI classification and draft replies. Owner notification and customer email sending are later phases; see the [implementation plan](IMPLEMENTATION_PLAN.md).
 
 ## Requirements
 
@@ -10,7 +10,7 @@ This phase provides the public inquiry form, owner authentication, a protected l
 
 ## Option A: Docker Compose for database and API
 
-From the project root, copy `.env.example` to `.env`. Replace `JWT_SECRET` with a random string of at least 32 characters. Keep `POSTGRES_PASSWORD` and the password inside `DATABASE_URL` equal; URL-encode reserved characters in the URL password.
+From the project root, copy `.env.example` to `.env`. Replace `JWT_SECRET` with a random string of at least 32 characters. Keep `POSTGRES_PASSWORD` and the password inside `DATABASE_URL` equal; URL-encode reserved characters in the URL password. Set `OPENROUTER_API_KEY` in this backend Compose environment to enable AI. `OPENROUTER_MODEL` defaults to `deepseek/deepseek-v4.1-flash` and can be changed without editing application code.
 
 ```powershell
 Copy-Item .env.example .env
@@ -30,12 +30,22 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 $env:DATABASE_URL = 'postgresql+psycopg://cleanflow:<password>@localhost:5432/cleanflow'
 $env:JWT_SECRET = '<random-secret-at-least-32-characters>'
+$env:OPENROUTER_API_KEY = '<your-openrouter-key>'
+$env:OPENROUTER_MODEL = 'deepseek/deepseek-v4.1-flash'
 .\.venv\Scripts\alembic.exe upgrade head
 .\.venv\Scripts\python.exe -m app.create_user owner@example.com 'Business Owner'
 .\.venv\Scripts\uvicorn.exe app.main:app --reload
 ```
 
 Set the URL to your actual PostgreSQL database and credentials. The app reads environment variables; copying `api/.env.example` alone does not load them into the shell.
+
+## AI gateway and local behavior
+
+All AI requests originate from the FastAPI backend and go to OpenRouter. Keep `OPENROUTER_API_KEY` in backend environment variables or a local untracked `.env` file; never put it in `web/.env.local` or a `NEXT_PUBLIC_` variable. The backend-only OpenRouter endpoint and model routing live in `api/app/ai.py`. OpenRouter currently lists DeepSeek V4.1 Flash under the slug above; check the OpenRouter catalog if the slug changes.
+
+Creating an inquiry stores the lead first, then requests structured classification. If OpenRouter is not configured or a request fails, the lead remains saved with a failed `ai_classified` activity; an authenticated owner can retry from the lead detail page. Draft replies are stored as activity entries and shown in an editable text area. They are **never sent** by Phase 3. Keep this build local until the public demo AI limits and rate limiting in Phase 5 are implemented.
+
+Backend tests inject a fake AI provider and an HTTP mock transport. They neither need a key nor send live OpenRouter requests. The live OpenRouter workflow and PostgreSQL/Compose deployment can be checked separately when those services are available.
 
 ## Web frontend
 

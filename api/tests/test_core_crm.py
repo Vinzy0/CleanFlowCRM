@@ -43,8 +43,8 @@ def test_status_changes_and_activity_timeline(monkeypatch):
         detail_url = f"/api/leads/{lead_id}"
         initial = client.get(detail_url, headers=headers).json()
         assert initial["pipeline_stage"] == "New"
-        assert initial["analysis"] is None
-        assert [item["type"] for item in initial["activities"]] == ["lead_created"]
+        assert initial["analysis"]["priority"] == "normal"
+        assert [item["type"] for item in initial["activities"]] == ["lead_created", "ai_classified"]
         assert client.patch(f"{detail_url}/status", json={"stage": "Contacted"}).status_code == 401
         assert client.patch(f"{detail_url}/status", headers=headers, json={"stage": "Lost"}).status_code == 422
 
@@ -57,9 +57,9 @@ def test_status_changes_and_activity_timeline(monkeypatch):
         persisted = client.get(detail_url, headers=headers).json()
         assert persisted["pipeline_stage"] == "Completed"
         assert [item["type"] for item in persisted["activities"]] == [
-            "lead_created", "status_changed", "status_changed", "status_changed"
+            "lead_created", "ai_classified", "status_changed", "status_changed", "status_changed"
         ]
-        assert [item["content"] for item in persisted["activities"][1:]] == [
+        assert [item["content"] for item in persisted["activities"][2:]] == [
             {"from": "New", "to": "Contacted"},
             {"from": "Contacted", "to": "Booked"},
             {"from": "Booked", "to": "Completed"},

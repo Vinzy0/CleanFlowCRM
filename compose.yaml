@@ -19,6 +19,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-deepseek/deepseek-v4.1-flash}
     ports:
       - "8000:8000"
     depends_on:

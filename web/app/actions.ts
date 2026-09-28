@@ -65,3 +65,20 @@ export async function changeStatus(leadId: number, returnTo: "pipeline" | "detai
   revalidatePath(`/crm/leads/${leadId}`);
   redirect(destination);
 }
+
+export async function retryClassification(leadId: number) {
+  const destination = `/crm/leads/${leadId}`;
+  const response = await authenticatedApi(`/api/leads/${leadId}/classify`, { method: "POST" }).catch(() => null);
+  if (response?.status === 401) redirect("/login");
+  revalidatePath(destination);
+  revalidatePath("/crm/pipeline");
+  redirect(response?.ok ? destination : `${destination}?error=analysis`);
+}
+
+export async function generateDraftReply(leadId: number) {
+  const destination = `/crm/leads/${leadId}`;
+  const response = await authenticatedApi(`/api/leads/${leadId}/draft-reply`, { method: "POST" }).catch(() => null);
+  if (response?.status === 401) redirect("/login");
+  revalidatePath(destination);
+  redirect(response?.ok ? destination : `${destination}?error=draft`);
+}

@@ -10,7 +10,7 @@ export default function Home() {
           <Link className="button" href="/inquiry">Submit an inquiry</Link>
           <Link className="button button-secondary" href="/login">Open business CRM</Link>
         </div>
-        <p className="small-note">This first phase captures inquiries and gives the business a protected lead list. AI and email automation arrive in later phases.</p>
+        <p className="small-note">Inquiries flow into a protected CRM with AI-assisted summaries and priorities. Suggested replies can be edited; email sending is not enabled yet.</p>
       </div>
       <div className="landing-panel" aria-label="Inquiry workflow preview">
         <div className="panel-heading">INQUIRY DESK</div>

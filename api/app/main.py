@@ -2,11 +2,13 @@ import hashlib
 import json
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .auth import authenticate, create_token, current_user
+from .ai import AIProvider, AIProviderError, classify, draft_reply, get_ai_provider
 from .business import BUSINESS
 from .db import get_db
 from .models import AIAnalysis, Activity, Lead, User
@@ -40,7 +42,7 @@ def me(user: User = Depends(current_user)):
 
 
 @app.post("/api/leads", response_model=LeadRead, status_code=status.HTTP_201_CREATED)
-def create_lead(payload: LeadCreate, db: Session = Depends(get_db)):
+def create_lead(payload: LeadCreate, db: Session = Depends(get_db), provider: AIProvider = Depends(get_ai_provider)):
     fingerprint = hashlib.sha256(
         json.dumps(payload.model_dump(mode="json", exclude={"inquiry_key"}), sort_keys=True).encode()
     ).hexdigest()
@@ -60,6 +62,7 @@ def create_lead(payload: LeadCreate, db: Session = Depends(get_db)):
     db.add(Activity(lead_id=lead.id, type="lead_created", status="completed", content={}))
     db.commit()
     db.refresh(lead)
+    run_classification(db, lead, provider)
     return lead
 
 
@@ -67,6 +70,34 @@ def matching_lead(lead: Lead, fingerprint: str) -> Lead:
     if lead.inquiry_fingerprint != fingerprint:
         raise HTTPException(409, "Inquiry key already used for a different request")
     return lead
+
+
+def run_classification(db: Session, lead: Lead, provider: AIProvider) -> bool:
+    activity = Activity(lead_id=lead.id, type="ai_classified", status="pending", content={})
+    db.add(activity)
+    db.commit()
+    try:
+        result = classify(lead, provider)
+    except (AIProviderError, ValidationError):
+        activity.status = "failed"
+        activity.content = {"message": "AI analysis could not be completed. Retry from the lead page."}
+        db.commit()
+        return False
+    db.add(AIAnalysis(
+        lead_id=lead.id,
+        service_category=result.service_category,
+        priority=result.priority,
+        summary="\n".join(f"• {item}" for item in result.summary),
+        matched_priority_rules=result.matched_priority_rules,
+        classification_rationale=result.classification_rationale,
+        model=provider.model,
+    ))
+    lead.priority = result.priority
+    activity.status = "completed"
+    activity.content = {"category": result.service_category, "priority": result.priority}
+    db.commit()
+    db.refresh(lead)
+    return True
 
 
 @app.get("/api/leads", response_model=list[LeadRead])
@@ -93,6 +124,41 @@ def get_lead(lead_id: int, db: Session = Depends(get_db), _: User = Depends(curr
         "activities": activities,
         "analysis": analysis,
     }
+
+
+@app.post("/api/leads/{lead_id}/classify")
+def retry_classification(
+    lead_id: int, db: Session = Depends(get_db), _: User = Depends(current_user),
+    provider: AIProvider = Depends(get_ai_provider),
+):
+    lead = db.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(404, "Lead not found")
+    if not run_classification(db, lead, provider):
+        raise HTTPException(503, "AI analysis is unavailable; the lead was saved")
+    return {"status": "completed"}
+
+
+@app.post("/api/leads/{lead_id}/draft-reply")
+def create_draft_reply(
+    lead_id: int, db: Session = Depends(get_db), _: User = Depends(current_user),
+    provider: AIProvider = Depends(get_ai_provider),
+):
+    lead = db.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(404, "Lead not found")
+    try:
+        draft = draft_reply(lead, provider)
+    except AIProviderError:
+        db.add(Activity(
+            lead_id=lead.id, type="reply_generated", status="failed",
+            content={"message": "Draft generation failed. Please try again."},
+        ))
+        db.commit()
+        raise HTTPException(503, "Draft generation is unavailable") from None
+    db.add(Activity(lead_id=lead.id, type="reply_generated", status="completed", content={"draft": draft}))
+    db.commit()
+    return {"draft": draft}
 
 
 @app.patch("/api/leads/{lead_id}/status", response_model=LeadRead)
