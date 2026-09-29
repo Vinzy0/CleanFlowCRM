@@ -7,3 +7,7 @@ def test_managed_postgres_urls_use_installed_driver():
         assert normalize_database_url(url) == "postgresql+psycopg://user:pass@host/db?sslmode=require"
     assert normalize_database_url("postgresql+psycopg://user:pass@host/db") == "postgresql+psycopg://user:pass@host/db"
     assert normalize_database_url("sqlite:///local.db") == "sqlite:///local.db"
+
+
+def test_health_checks_database(crm):
+    assert crm.client.get("/api/health").json() == {"status": "ok"}

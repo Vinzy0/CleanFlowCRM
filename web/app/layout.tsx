@@ -14,7 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <header className="public-header">
           <Link className="brand" href="/">CleanFlow<span>CRM</span></Link>
           <nav aria-label="Public navigation">
-            <Link href="/inquiry">Request a cleaning</Link>
+            <Link href="/inquiry">Inquiry flow</Link>
             <Link href="/login">Business sign in</Link>
           </nav>
         </header>

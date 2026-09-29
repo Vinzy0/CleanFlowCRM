@@ -1,5 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from . import leads, ratelimit, settings
@@ -13,6 +13,12 @@ from .models import AIAnalysis, Activity, Lead, User
 from .schemas import EmailSend, LeadCreate, LeadDetailRead, LeadRead, LeadUpdate, Login, StatusChange
 
 app = FastAPI(title="CleanFlow CRM API")
+
+
+@app.get("/api/health")
+def health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 def lead_or_404(db: Session, lead_id: int, user: User) -> Lead:
@@ -92,6 +98,8 @@ def create_lead(
     provider: AIProvider = Depends(get_ai_provider),
     email_provider: EmailProvider = Depends(get_email_provider),
 ):
+    if settings.flag("DEMO_MODE"):
+        raise HTTPException(403, "Public inquiries are disabled in demo mode. Use the synthetic demo workflow.")
     ratelimit.enforce("inquiry", request)
     try:
         lead, created = leads.create_lead(db, payload)

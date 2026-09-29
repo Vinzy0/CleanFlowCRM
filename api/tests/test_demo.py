@@ -140,6 +140,16 @@ def test_public_requests_cannot_mark_a_lead_as_demo(crm):
     assert demo_detail(crm, real["id"])["is_demo"] is False
 
 
+def test_public_inquiry_is_closed_in_demo_mode(crm, monkeypatch, fake_provider, fake_email_provider):
+    enable_demo(monkeypatch)
+    response = crm.client.post("/api/leads", json=crm.inquiry(email="person@real-business.com"))
+    assert response.status_code == 403
+    assert crm.client.get("/api/leads", headers=crm.headers).json() == []
+    assert fake_provider.calls == []
+    assert fake_email_provider.calls == []
+    assert simulate(crm).status_code == 201
+
+
 def test_demo_reuses_stored_ai_results_instead_of_paying_twice(crm, monkeypatch, fake_provider):
     enable_demo(monkeypatch)
     crm.client.post("/api/demo/reset", headers=crm.headers)

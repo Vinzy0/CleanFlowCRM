@@ -72,6 +72,8 @@ export async function submitInquiry(previous: InquiryState, form: FormData): Pro
           ? "Check the highlighted details and try again."
           : response?.status === 429
             ? rateLimitMessage(response, body)
+            : response?.status === 403
+              ? "This public demo accepts sample inquiries only. Enter the demo workspace to simulate one."
             : "We couldn’t save your request. Your details are still here — please try again.",
       fields: response?.status === 422 ? fieldErrors(body?.detail) : {},
       values: payload,
