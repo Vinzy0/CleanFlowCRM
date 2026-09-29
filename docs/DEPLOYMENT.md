@@ -1,5 +1,7 @@
 # Tavo public demo deployment
 
+The current public instance is [Tavo](https://tavo-web-6d8p.onrender.com) with [API health](https://tavo-api.onrender.com/api/health). The two Render services are `tavo-web` and `tavo-api`; Neon project `Tavo` is separate from the older staging project. The exact hosted checks are recorded in [VERIFICATION.md](VERIFICATION.md).
+
 The repository's `render.yaml` creates **two Render Free web services**: a Next.js frontend and a FastAPI backend. Neon Free supplies PostgreSQL; Resend Free supplies test email. No paid Render database is declared. Both web services may sleep after 15 minutes idle, so the first visit can take about a minute. This is acceptable for a portfolio demo.
 
 Vercel Hobby is not used for this prospect-facing deployment because [its fair-use policy](https://vercel.com/docs/limits/fair-use-guidelines) limits Hobby deployments to noncommercial personal use. Render documents Free web services as suitable for portfolio previews.

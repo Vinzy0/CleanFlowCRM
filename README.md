@@ -2,7 +2,7 @@
 
 A working CRM and inquiry-automation demo built for a **fictional cleaning business**. Tavo is the software product; Acme Cleaning Services is the sample business. This is a portfolio piece that can be tailored to another service business.
 
-**Status: The application flow in [the PRD](docs/PRD.md) has passed local checks.** Public deployment and real PostgreSQL/Resend verification remain outstanding — see [deployment](docs/DEPLOYMENT.md) and [verification](docs/VERIFICATION.md).
+**Live demo:** [Open Tavo](https://tavo-web-6d8p.onrender.com) · [API health](https://tavo-api.onrender.com/api/health). The full synthetic inquiry workflow has passed on the public deployment with Neon PostgreSQL, OpenRouter, and Resend's safe test address. See [verification](docs/VERIFICATION.md) for the exact checks and limits.
 
 ---
 
@@ -296,10 +296,10 @@ Activity types: `lead_created`, `status_changed`, `ai_classified`, `reply_genera
 
 ## Known limitations
 
-- **PostgreSQL and Docker have not been run on this machine** (neither is installed). The schema, migrations and `alembic check` are verified on SQLite only.
-- **No hosted Resend request has been tested.** Email behaviour is verified with mocked transports and the local sandbox sink. The hosted Blueprint uses Resend's safe test destination.
+- **Render Free services sleep when idle.** The first page or API request after a cold start can take around a minute. Docker was not run locally; its deployed image passed the hosted workflow.
+- **The demo uses Resend's test destination.** Hosted owner notifications and a human-approved reply were accepted for `delivered@resend.dev`; no customer address was contacted.
 - **Resend acceptance is not inbox delivery.** The API records a provider receipt as sent; downstream delivery and bounce handling are outside this MVP. The `log` transport reports captured, not delivered.
-- **Not deployed.** No public URL or hosted database yet.
+- **Usage is shared on Free tiers.** The in-memory rate limiter may group visitors behind the frontend service, and AI/email calls consume provider quotas.
 - Drag-and-drop was deliberately not built; the PRD's approved status dropdown is used instead.
 
 Exact remaining verification steps, with commands, are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
