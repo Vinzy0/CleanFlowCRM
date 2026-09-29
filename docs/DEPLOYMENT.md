@@ -6,7 +6,7 @@ Vercel Hobby is not used for this prospect-facing deployment because [its fair-u
 
 ## Required private values
 
-Create a Neon Free project and copy its PostgreSQL connection URL with TLS (`sslmode=require`). The API normalizes Neon `postgresql://` to the installed `psycopg` driver. The API runs Alembic migrations before serving requests and `/api/health` checks the database with `SELECT 1`.
+Create a Neon Free project and copy its **direct (unpooled)** PostgreSQL connection URL with TLS (`sslmode=require`). Turn off the console's **Pooled connection** toggle when copying; the host should not include `-pooler`. The API normalizes Neon `postgresql://` to the installed `psycopg` driver. The API runs Alembic migrations before serving requests and `/api/health` checks the database with `SELECT 1`.
 
 At Blueprint creation, provide these values **only in Render's secret prompts**:
 
