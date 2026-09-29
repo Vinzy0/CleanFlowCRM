@@ -196,8 +196,8 @@ export async function sendLeadEmail(leadId: number, previous: EmailState, form: 
       ? "This exact reply was already sent, so nothing was sent again."
       : redirected
         ? sandboxed
-          ? `Captured in the sandbox outbox for the controlled demo inbox (${body?.delivered_to}).`
-          : `Sent to the controlled demo inbox (${body?.delivered_to}) instead of the customer address ${body?.to}.`
+          ? `Captured in the sandbox outbox for the demo destination (${body?.delivered_to}).`
+          : `Accepted by the email provider for the safe demo destination (${body?.delivered_to}); no customer email was sent.`
         : sandboxed
           ? `Captured in the sandbox outbox for ${body?.to}; no email was delivered.`
           : `Email sent to ${body?.to}.`;

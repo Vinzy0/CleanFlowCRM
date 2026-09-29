@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,19 @@ from .email_flow import CUSTOMER_REPLY, EmailOutcome, customer_reply_key, notify
 from .models import AIAnalysis, Activity, Lead, User
 from .schemas import EmailSend, LeadCreate, LeadDetailRead, LeadRead, LeadUpdate, Login, StatusChange
 
-app = FastAPI(title="CleanFlow CRM API")
+def configure_cors(application: FastAPI, origin: str) -> None:
+    if not origin:
+        return
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[origin.rstrip("/")],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+
+app = FastAPI(title="Tavo API")
+configure_cors(app, settings.env("FRONTEND_ORIGIN", "") or "")
 
 
 @app.get("/api/health")

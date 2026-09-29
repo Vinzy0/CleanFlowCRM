@@ -4,6 +4,7 @@ body:has(.crm-shell) .public-header{display:none}
 .workspace-title{display:grid;gap:3px;margin-bottom:42px}
 .workspace-title span{font-size:13px;color:#b8d8ca}
 .workspace-title strong{font-size:21px;letter-spacing:-.02em}
+.workspace-title .demo-indicator{margin:0 0 0 6px;font-size:10px;letter-spacing:.04em}
 .crm-sidebar nav{gap:6px}
 .crm-sidebar nav a[aria-current="page"]{background:#2b5c4d;color:#fff}
 .crm-sidebar nav a:not([aria-current="page"]){color:#d2e6dc}
@@ -135,3 +136,4 @@ body:has(.crm-shell) .public-header{display:none}
 .card-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 @media(max-width:800px){.demo-panel{padding:22px}.email-panel{padding:22px}}
 @media(max-width:560px){.demo-actions,.topline-actions{width:100%}.demo-actions form{flex:1}.demo-actions .button{flex:1}.recent-facts{margin-left:0}.email-footer{align-items:stretch;flex-direction:column}.email-footer .button{width:100%}}
+@media(max-width:560px){.recent-row{flex-wrap:wrap}.recent-person{flex:1 1 calc(100% - 55px)}.recent-facts{order:3}.recent-row .stage{order:4;margin-left:auto}.demo-actions form{display:flex}.demo-actions .button{width:100%}}

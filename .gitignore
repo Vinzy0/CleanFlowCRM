@@ -5,6 +5,11 @@ api/.pytest_cache/
 *.db
 .env
 .env.local
+.env.*
+!.env.example
+!web/.env.example
+web/.vercel/
+.vercel/
 web/node_modules/
 web/.next/
 web/tsconfig.tsbuildinfo

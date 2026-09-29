@@ -3,11 +3,15 @@ import { getPublicConfig } from "@/lib/api";
 
 export default async function Home() {
   const config = await getPublicConfig();
+  if (!config) {
+    return <main className="message-page"><div className="message-card"><h1>Tavo is waking up</h1><p>The demo service is starting. Refresh this page in a moment.</p></div></main>;
+  }
   return (
     <main className="landing">
       <div className="landing-copy">
+        {config?.demo_mode && <span className="demo-indicator">Demo workspace</span>}
         <h1>Every cleaning inquiry, in one clear place.</h1>
-        <p>CleanFlow CRM is a working example of a customer workflow built for a fictional cleaning business.</p>
+        <p>Tavo is a working customer workflow for a fictional cleaning business. See how an inquiry becomes a lead your team can act on.</p>
         <div className="actions">
           {config?.demo_mode ? (
             <Link className="button" href="/login">Try the live demo</Link>
@@ -21,7 +25,7 @@ export default async function Home() {
         <p className="small-note">
           Each inquiry becomes a lead with an AI-generated service category, priority, and summary. The owner reviews it in
           the pipeline and can have AI draft a reply — which is only sent after a human approves it.
-          {config?.demo_mode ? " The hosted demo creates only fake inquiries and uses a controlled inbox." : ""}
+          {config?.demo_mode ? " The hosted demo creates only fake inquiries and redirects email to a safe test destination." : ""}
         </p>
       </div>
       <div className="landing-panel" aria-label="Inquiry workflow preview">

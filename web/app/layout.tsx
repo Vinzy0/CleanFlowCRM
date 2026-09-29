@@ -3,8 +3,8 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CleanFlow CRM",
-  description: "Cleaning business inquiry and lead management demo",
+  title: "Tavo | Service business CRM demo",
+  description: "Tavo turns customer inquiries into an actionable service business pipeline.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <header className="public-header">
-          <Link className="brand" href="/">CleanFlow<span>CRM</span></Link>
+          <Link className="brand" href="/">Tavo</Link>
           <nav aria-label="Public navigation">
             <Link href="/inquiry">Inquiry flow</Link>
             <Link href="/login">Business sign in</Link>

@@ -1,8 +1,8 @@
-# CleanFlow CRM
+# Tavo
 
-A working CRM and inquiry-automation demo built for a **fictional cleaning business**. It is a portfolio piece: a complete, runnable product rather than a mockup, and the same kind of system can be rebuilt around another business's fields, stages, categories and branding.
+A working CRM and inquiry-automation demo built for a **fictional cleaning business**. Tavo is the software product; Acme Cleaning Services is the sample business. This is a portfolio piece that can be tailored to another service business.
 
-**Status: The application flow in [the PRD](docs/PRD.md) has passed local checks.** Public deployment, the demo video and real PostgreSQL/Resend verification are still outstanding — see [Known limitations](#known-limitations) and [docs/VERIFICATION.md](docs/VERIFICATION.md).
+**Status: The application flow in [the PRD](docs/PRD.md) has passed local checks.** Public deployment and real PostgreSQL/Resend verification remain outstanding — see [deployment](docs/DEPLOYMENT.md) and [verification](docs/VERIFICATION.md).
 
 ---
 
@@ -10,7 +10,7 @@ A working CRM and inquiry-automation demo built for a **fictional cleaning busin
 
 A small cleaning business loses leads in a manual loop: an inquiry arrives by email or phone, someone retypes it somewhere, decides by feel how urgent it is, and may or may not remember to follow up.
 
-CleanFlow turns that into one pipeline:
+Tavo turns that into one pipeline:
 
 ```text
 Customer submits inquiry          (public form, validated)
@@ -54,7 +54,7 @@ Cleaning is the first-class implementation. `api/app/business.py` holds a small 
 | Email | Resend | Backend-only; plus a `log` sandbox transport for local/demo runs. |
 
 ```text
-CleanFlow CRM/
+repository/
 ├─ api/                    FastAPI backend
 │  ├─ app/
 │  │  ├─ main.py           HTTP routes (thin)
@@ -75,6 +75,7 @@ CleanFlow CRM/
 │  ├─ app/                 public pages (/ , /inquiry, /login) and the CRM
 │  └─ lib/                 API client, formatting, notice messages
 ├─ compose.yaml            PostgreSQL + API containers
+├─ render.yaml              Reviewable hosted demo configuration (not deployed)
 └─ docs/                   PRD, plan, setup, verification notes
 ```
 
@@ -168,14 +169,15 @@ The API container runs `alembic upgrade head` before starting. The database is h
 | `OWNER_NOTIFICATION_EMAIL` | for email | Where new-lead notifications go. Missing → the attempt is recorded as failed, not silently dropped. |
 | `EMAIL_TRANSPORT` | no | `resend` (default) or `log` (sandbox sink for local/demo runs). |
 | `EMAIL_LOG_PATH` | no | Where the sandbox transport writes JSON-lines messages. |
-| `CRM_PUBLIC_URL` | no | Base URL used in the notification's "Open in the CRM" link. |
+| `CRM_PUBLIC_URL` | no | Base URL used in the notification's "Open in the CRM" link; wired to the web service URL on Render. |
+| `FRONTEND_ORIGIN` | hosted | Exact public frontend origin allowed by API CORS; wired by the Render Blueprint. |
 | `DEMO_MODE` | no | `true` enables the simulate/reset endpoints and the demo panel. |
-| `DEMO_EMAIL_OVERRIDE` | demo | Controlled inbox. Required before demo mode will send anything at all. |
+| `DEMO_EMAIL_OVERRIDE` | demo | Safe destination for all demo messages. The Blueprint uses Resend's `delivered@resend.dev` test address. Required before demo mode sends anything. |
 | `DEMO_REUSE_AI_RESULTS` | no | Defaults to `true`: identical fixed scenarios reuse a stored result instead of paying again. |
 | `RATE_LIMIT_*` | no | Per-bucket limits: `INQUIRY`, `SIMULATE`, `CLASSIFY`, `DRAFT`, `EMAIL`, `LOGIN`, `RESET`, each with an optional `_WINDOW_SECONDS`. |
 | `TRUST_PROXY_HEADERS` | no | Leave `false` unless a trusted proxy overwrites `X-Forwarded-For`. |
-| `API_URL` (web) | yes | Backend base URL for the Next.js server. |
-| `DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` (web) | demo | Server-side only; must match an account created with `app.create_user --demo`. The one-click login checks that flag before setting a session. |
+| `API_URL` (web) | hosted | Public backend base URL for the Next.js server; wired by the Render Blueprint. |
+| `DEMO_LOGIN_EMAIL` / `DEMO_LOGIN_PASSWORD` (API and web) | demo | Server-side only. The API creates or updates the restricted demo account on startup; the web uses the same values for one-click entry. |
 
 ---
 
@@ -237,11 +239,12 @@ Outbound email is backend-only. Recipients are never taken from a request body:
 Enable with `DEMO_MODE=true`. It adds a prominent **Simulate new inquiry** action (dashboard and pipeline) and **Reset demo data**.
 
 - **Simulate** picks one of six fixed fake scenarios and runs it through the *same* pipeline the public form uses: lead created, AI classified, notification sent, lead shown in the CRM. Nothing bypasses the real code path.
+- **Public inquiries are closed while demo mode is on.** The `/inquiry` page points visitors to the synthetic workflow, and `POST /api/leads` rejects direct submissions. Turn demo mode off to accept real customer inquiries.
 - **Reset** deletes demo records only (`lead.is_demo`) and reseeds a populated workspace: five synthetic leads spread across all four stages, each with AI analysis and an activity history.
 - **Fake data only** — every scenario uses `@example.com` addresses and `555` numbers, validated at import so the pool cannot drift.
 - **AI cost control** — per-address limits, a fixed scenario pool, and reuse of an already-stored result for an identical scenario on the same day, so repeated resets do not re-pay for the same classification.
 - **Email safety** — with demo mode on and no `DEMO_EMAIL_OVERRIDE`, the backend refuses to send *anything*. With an override set, every recipient is rewritten to that inbox, the record stores both the intended and delivered address, and only demo leads can be emailed at all.
-- **Authentication and isolation** — CRM pages stay behind the session cookie. Create the public account with `python -m app.create_user --demo demo@example.com "Public Demo"`, then set matching server-side `DEMO_LOGIN_EMAIL`/`DEMO_LOGIN_PASSWORD` on the web host. The backend filters the lead list and rejects every real-lead detail or mutation for demo users, even when they guess an ID. Demo users can change pipeline status but cannot edit customer fields or delete leads, and lose CRM access when demo mode is off. Existing demo accounts created before migration 0003 remain ordinary users until explicitly marked `is_demo=true`; mark them before enabling one-click entry.
+- **Authentication and isolation** — CRM pages stay behind the session cookie. The hosted API bootstraps a restricted demo account from `DEMO_LOGIN_EMAIL`/`DEMO_LOGIN_PASSWORD` after migrations. The backend filters the lead list and rejects every real-lead detail or mutation for demo users, even when they guess an ID. Demo users can change pipeline status but cannot edit customer fields or delete leads, and lose CRM access when demo mode is off. Existing demo accounts created before migration 0003 remain ordinary users until explicitly marked `is_demo=true`; bootstrap refuses to convert them automatically.
 - **Rate limits** — sign-in, public inquiries, simulation, AI calls, drafts, emails and resets have in-process per-address counters, with clear messages and a `Retry-After` header. Next.js server actions may appear to the API as one server address, so deploy as one API instance and verify the forwarded client address at the trusted proxy before claiming per-visitor limits. The shared bucket conservatively caps AI spend but can throttle visitors together.
 
 ---
@@ -252,7 +255,7 @@ Enable with `DEMO_MODE=true`. It adds a prominent **Simulate new inquiry** actio
 GET    /api/config                      public business + demo configuration
 POST   /api/auth/login                  sign in (rate limited)
 GET    /api/auth/me                     current user
-POST   /api/leads                       public inquiry → lead (rate limited)
+POST   /api/leads                       public inquiry → lead (rate limited; closed in demo mode)
 GET    /api/leads                       list leads                (auth)
 GET    /api/leads/{id}                  lead detail + activities + analysis (auth)
 PATCH  /api/leads/{id}                  update lead fields        (auth)
@@ -294,9 +297,9 @@ Activity types: `lead_created`, `status_changed`, `ai_classified`, `reply_genera
 ## Known limitations
 
 - **PostgreSQL and Docker have not been run on this machine** (neither is installed). The schema, migrations and `alembic check` are verified on SQLite only.
-- **No real Resend delivery has been tested.** Email behaviour is verified with mocked transports and the sandbox sink.
+- **No hosted Resend request has been tested.** Email behaviour is verified with mocked transports and the local sandbox sink. The hosted Blueprint uses Resend's safe test destination.
 - **Resend acceptance is not inbox delivery.** The API records a provider receipt as sent; downstream delivery and bounce handling are outside this MVP. The `log` transport reports captured, not delivered.
-- **Not deployed.** No public URL, no hosted database, no demo video yet.
+- **Not deployed.** No public URL or hosted database yet.
 - Drag-and-drop was deliberately not built; the PRD's approved status dropdown is used instead.
 
 Exact remaining verification steps, with commands, are in [docs/VERIFICATION.md](docs/VERIFICATION.md).
@@ -307,3 +310,4 @@ Exact remaining verification steps, with commands, are in [docs/VERIFICATION.md]
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase map and per-phase verification notes
 - [Local setup detail](docs/PHASE1_SETUP.md) — environment walkthrough
 - [Remaining verification](docs/VERIFICATION.md) — what still needs real infrastructure
+- [Free deployment plan](docs/DEPLOYMENT.md) — Render Free web services, Neon Free database, and Resend test delivery

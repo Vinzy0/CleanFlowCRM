@@ -46,9 +46,11 @@ class EmailSettings:
             return "disabled"
         if self.transport == LOG_TRANSPORT:
             return "sandbox"
+        if not self.configured:
+            return "disabled"
         if self.demo_override:
             return "redirected"
-        return "live" if self.api_key and self.sender else "disabled"
+        return "live"
 
     @property
     def configured(self) -> bool:

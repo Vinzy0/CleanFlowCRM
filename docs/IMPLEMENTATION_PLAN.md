@@ -1,11 +1,11 @@
-# CleanFlow CRM implementation plan
+# Tavo implementation plan
 
 Source of truth: [PRD.md](PRD.md). This plan records delivery order and verification; it does not add features.
 
 ## Repository inspection (2026-09-28)
 
 - The supplied Codex task directory contained no repository or application files.
-- No existing CleanFlow/cleaning CRM project was found under Documents.
+- No existing cleaning CRM project was found under Documents.
 - This new project starts in `C:\Users\VINZ\Documents\CleanFlow CRM`.
 - Node 24 and Python 3.11 are available. Docker and `psql` are not installed, so PostgreSQL integration cannot be run locally until a server or container runtime is available.
 

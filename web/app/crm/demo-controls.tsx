@@ -14,7 +14,7 @@ function DemoButton({ label, pendingLabel, secondary }: { label: string; pending
 }
 
 function emailSafetyCopy(delivery: EmailDelivery) {
-  if (delivery === "redirected") return "Email is redirected to the controlled demo inbox — no customer or owner address can be reached from here.";
+  if (delivery === "redirected") return "Email is redirected to a safe demo destination. Provider acceptance can be tested without emailing customers or owners.";
   if (delivery === "disabled") return "Email delivery is switched off in this demo, so nothing can be sent to a real address.";
   if (delivery === "sandbox") return "Email is captured by the local sandbox outbox instead of being delivered.";
   return "Email delivery is live on this environment.";
@@ -40,7 +40,7 @@ export default function DemoControls({
   return (
     <section className="demo-panel" aria-label="Public demo controls">
       <div className="demo-copy">
-        <h2>Public demo</h2>
+        <h2>Tavo demo</h2>
         <p>
           Simulate a customer inquiry to watch the full workflow: lead created, AI classification and summary, owner
           notification, then a reply you approve yourself.

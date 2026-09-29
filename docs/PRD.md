@@ -3,7 +3,7 @@
 ## 1. Product Overview
 
 ### Product Name
-**CleanFlow CRM** — working name.
+**Tavo** — product name. Acme Cleaning Services is the fictional sample business.
 
 ### Product Type
 A fully working CRM demo designed around a fictional cleaning business.

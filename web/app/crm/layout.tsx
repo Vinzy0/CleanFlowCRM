@@ -11,5 +11,5 @@ export default async function CrmLayout({ children }: Readonly<{ children: React
   const user: { name: string; email: string } = await response.json();
   const configResponse = await api("/api/config").catch(() => null);
   const config: PublicConfig | null = configResponse?.ok ? await configResponse.json() : null;
-  return <div className="crm-shell"><aside className="crm-sidebar"><div className="workspace-title"><span>{config?.business_name ?? "CleanFlow CRM"}</span><strong>Workspace</strong></div><CrmNavigation /><div className="sidebar-footer"><span>{user.name}</span><form action={signOut}><button type="submit">Sign out</button></form></div></aside><div className="crm-main">{children}</div></div>;
+  return <div className="crm-shell"><aside className="crm-sidebar"><div className="workspace-title"><span>{config?.business_name ?? "Service business"}</span><strong>Tavo {config?.demo_mode && <small className="demo-indicator">Demo</small>}</strong></div><CrmNavigation /><div className="sidebar-footer"><span>{user.name}</span><form action={signOut}><button type="submit">Sign out</button></form></div></aside><div className="crm-main">{children}</div></div>;
 }

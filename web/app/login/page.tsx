@@ -15,12 +15,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const demoEmail = (process.env.DEMO_LOGIN_EMAIL ?? "").trim();
   const demoReady = Boolean(config?.demo_mode && demoEmail && (process.env.DEMO_LOGIN_PASSWORD ?? "").trim());
   const emailNote = config?.email_delivery === "redirected"
-    ? "Any email is redirected to a controlled demo inbox."
+    ? "Any email is redirected to a safe demo destination."
     : config?.email_delivery === "sandbox"
       ? "Email is captured in a sandbox outbox."
       : "Email delivery is disabled in this demo.";
   return <main className="message-page"><div className="login-card">
-    <h1>Business sign in</h1>
+    <h1>Sign in to Tavo</h1>
     <p>Access your cleaning inquiries.</p>
     {error && <p role="alert" className="error">{MESSAGES[error] ?? "Sign in failed. Please try again."}</p>}
     {demoReady && <div className="demo-hint">

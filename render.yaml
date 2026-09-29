@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: tavo-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: api/Dockerfile
+    dockerContext: api
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_LOGIN_EMAIL
+        value: demo@example.com
+      - key: DEMO_LOGIN_PASSWORD
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: EMAIL_TRANSPORT
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: Tavo Demo <onboarding@resend.dev>
+      - key: OWNER_NOTIFICATION_EMAIL
+        value: delivered@resend.dev
+      - key: DEMO_EMAIL_OVERRIDE
+        value: delivered@resend.dev
+      - key: CRM_PUBLIC_URL
+        fromService:
+          type: web
+          name: tavo-web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: tavo-web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: tavo-web
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: API_URL
+        fromService:
+          type: web
+          name: tavo-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DEMO_LOGIN_EMAIL
+        value: demo@example.com
+      - key: DEMO_LOGIN_PASSWORD
+        sync: false

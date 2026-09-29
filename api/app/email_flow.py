@@ -140,7 +140,7 @@ def _notification_body(db: Session, lead: Lead) -> str:
     lines.append("")
     lines.append(f"Open in the CRM: {crm_lead_url(lead.id)}")
     lines.append("")
-    lines.append("This message is an automated notification from CleanFlow CRM.")
+    lines.append("This message is an automated notification from Tavo.")
     return "\n".join(lines)
 
 

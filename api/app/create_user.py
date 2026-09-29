@@ -9,7 +9,7 @@ from .models import User
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create a CleanFlow CRM business user")
+    parser = argparse.ArgumentParser(description="Create a Tavo business user")
     parser.add_argument("email")
     parser.add_argument("name")
     parser.add_argument("--demo", action="store_true", help="Restrict this account to demo leads")

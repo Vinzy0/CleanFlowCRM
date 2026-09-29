@@ -64,7 +64,10 @@ export type PublicConfig = {
   email_delivery: EmailDelivery;
 };
 
-const baseUrl = process.env.API_URL ?? "http://127.0.0.1:8000";
+if (process.env.RENDER && !process.env.API_URL) {
+  throw new Error("API_URL is required on Render");
+}
+const baseUrl = (process.env.API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 
 export async function api(path: string, init?: RequestInit) {
   return fetch(`${baseUrl}${path}`, { ...init, cache: "no-store" });

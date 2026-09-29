@@ -8,7 +8,7 @@ import type { EmailDelivery } from "@/lib/api";
 const EMPTY: EmailState = { error: "", notice: "", duplicate: false };
 
 const DELIVERY_NOTES: Record<EmailDelivery, string> = {
-  redirected: "Demo mode: this message will be delivered to the controlled demo inbox, never to the customer address.",
+  redirected: "Demo mode: this message goes to a safe test destination, never to the customer address.",
   disabled: "Email delivery is switched off in this environment, so sending will report a configuration error.",
   sandbox: "Sandbox mode: this message will be captured by the local outbox instead of being delivered.",
   live: "",
