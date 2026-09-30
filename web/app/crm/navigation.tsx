@@ -7,6 +7,7 @@ const items = [
   { href: "/crm", label: "Dashboard" },
   { href: "/crm/pipeline", label: "Pipeline" },
   { href: "/crm/leads", label: "Leads" },
+  { href: "/crm/integrations", label: "Integrations" },
 ];
 
 export default function CrmNavigation() {

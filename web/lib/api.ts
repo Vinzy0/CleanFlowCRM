@@ -12,6 +12,11 @@ export type Lead = {
   pipeline_stage: string;
   priority: string | null;
   is_demo: boolean;
+  source: string | null;
+  tags: string[];
+  next_action: string | null;
+  next_follow_up: string | null;
+  appointment_at: string | null;
   created_at: string;
   updated_at: string;
 };

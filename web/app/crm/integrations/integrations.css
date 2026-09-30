@@ -1,0 +1,31 @@
+.integration-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+.integrations-page .muted-copy{color:#4b6358}
+.integration-form{display:grid;gap:16px;margin-top:22px}
+.integration-form>label,.secret-reveal label{display:grid;gap:7px;font-size:14px;font-weight:700}
+.integration-form fieldset{border:1px solid #cadbd0;border-radius:10px;padding:15px;display:grid;gap:12px;min-width:0}
+.integration-form legend{font-size:14px;font-weight:700;padding:0 6px}
+.integration-form .check-option{display:flex;flex-direction:row;gap:10px;align-items:center;font-size:14px;overflow-wrap:anywhere}
+.check-option input{width:18px;height:18px;min-height:18px;flex-shrink:0;accent-color:#176c58}
+.integration-form>.button{justify-self:start}
+.integration-list{margin-top:28px}
+.integration-list article,.delivery-list article{padding:22px 0;border-top:1px solid #d7e6db}
+.integration-list article h3,.delivery-heading h3{margin:0 0 8px;font-size:17px}
+.integration-list article form{margin-top:12px}
+.integration-list article p{margin:10px 0;overflow-wrap:anywhere}
+.secret-reveal{display:grid;gap:12px;padding:16px;background:#e8f4ee;border-radius:10px}
+.secret-reveal .button{justify-self:start}
+.delivery-section{margin-top:28px}
+.delivery-heading{display:flex;gap:16px;align-items:start;justify-content:space-between}
+.delivery-heading p{font-size:14px;color:#4b6358;margin:0}
+.delivery-list{margin-top:20px}
+.event-id{font-size:13px;overflow-wrap:anywhere}
+.integrations-page details{margin:16px 0}
+.integrations-page summary{cursor:pointer;color:#176c58;font-size:14px;font-weight:700;padding:8px 0;min-height:40px}
+.attempt-list{padding-left:22px;display:grid;gap:14px}
+.attempt-list li{font-size:13px;line-height:1.6}
+.attempt-list li span,.attempt-list time{display:block;color:#4b6358}
+.integration-empty{padding:28px 0;color:#4b6358}
+.integrations-page :focus-visible{outline:3px solid #176c58;outline-offset:3px}
+.integrations-page input{min-width:0;max-width:100%}
+@media(max-width:1000px){.integration-columns{grid-template-columns:1fr}.delivery-section .panel-heading-row{flex-direction:column}}
+@media(max-width:560px){.integrations-page .detail-panel{padding:20px}.delivery-heading{flex-wrap:wrap}}

@@ -1,4 +1,9 @@
 body:has(.crm-shell) .public-header{display:none}
+.workflow-form fieldset{border:0;margin:18px 0 0;padding:0;display:grid;gap:15px;min-width:0}
+.detail-panel:has(.workflow-form) .muted-copy{color:#4b6358}
+.workflow-form label{display:grid;gap:7px;font-size:14px;font-weight:700}
+.workflow-form input{min-width:0;max-width:100%}
+.automation-history{padding-left:18px;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
 .crm-shell{min-height:100vh}
 .crm-sidebar{min-height:100vh}
 .workspace-title{display:grid;gap:3px;margin-bottom:42px}

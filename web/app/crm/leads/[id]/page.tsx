@@ -16,6 +16,7 @@ import { AiStatusChip, DemoBadge, EmailStatusChip, PriorityChip, StatusNotice } 
 import StatusForm from "../../status-form";
 import SubmitButton from "@/app/submit-button";
 import EmailPanel from "./email-panel";
+import WorkflowPanel from "./workflow-panel";
 import { generateDraftReply, retryClassification, retryOwnerNotification } from "@/app/actions";
 
 function activityDescription(activity: Activity) {
@@ -23,6 +24,10 @@ function activityDescription(activity: Activity) {
   switch (activity.type) {
     case "lead_created":
       return "Lead created";
+    case "lead_updated":
+      return `Workflow updated by ${String(content.actor ?? "owner")}`;
+    case "note_added":
+      return `Note: ${String(content.note ?? "")}`;
     case "status_changed":
       return `Status changed from ${content.from} to ${content.to}`;
     case "ai_classified":
@@ -69,6 +74,11 @@ export default async function LeadDetailPage({ params, searchParams }: {
   const ownerEmailStatus = ownerNotification?.status === "sent" && ownerNotification.content.sandboxed ? "captured" : ownerNotification?.status ?? null;
   const customerEmailStatus = customerReply?.status === "sent" && customerReply.content.sandboxed ? "captured" : customerReply?.status ?? null;
   const analysisFailed = classification?.status === "failed";
+  const userResponse = await authenticatedApi("/api/auth/me").catch(() => null);
+  const user = userResponse?.ok ? await userResponse.json() : null;
+  const historyResponse = !user?.is_demo && !config.demo_mode
+    ? await authenticatedApi(`/api/integrations/deliveries?lead_id=${lead.id}`).catch(() => null) : null;
+  const integrationHistory: { id: number; event_type: string; destination: string; status: string }[] = historyResponse?.ok ? await historyResponse.json() : [];
 
   return <main className="lead-detail">
     <Link href="/crm/leads" className="back-link">← All leads</Link>
@@ -99,6 +109,8 @@ export default async function LeadDetailPage({ params, searchParams }: {
         <section className="detail-panel"><div className="panel-heading-row"><div><h2>Reply to customer</h2><p className="muted-copy">Generate a draft reply, then edit it before sending. Emails are never sent automatically.</p></div><EmailStatusChip status={customerReply?.status ?? null} /></div>{customerReply?.status === "failed" && <p role="alert" className="error">Last send failed: {String(customerReply.content.message ?? "")}</p>}<form action={generateDraftReply.bind(null, lead.id)}><SubmitButton label="Draft reply" pendingLabel="Drafting…" /></form></section>
       )}
     </div><div className="detail-secondary">
+      <WorkflowPanel lead={lead} canEdit={Boolean(user && !user.is_demo)} />
+      {!user?.is_demo && !config.demo_mode && <section className="detail-panel"><h2>Automation history</h2>{integrationHistory.length === 0 ? <p className="muted-copy">No webhook deliveries for this lead.</p> : <ul className="automation-history">{integrationHistory.map((item) => <li key={item.id}>{item.event_type} → {item.destination}: <strong>{item.status}</strong></li>)}</ul>}<Link href="/crm/integrations" className="back-link">Inspect deliveries and retries</Link></section>}
       <section className="detail-panel"><h2>CRM</h2><dl className="detail-list"><div><dt>Current stage</dt><dd><span className="stage">{lead.pipeline_stage}</span></dd></div><div><dt>Created</dt><dd>{formatDateTime(lead.created_at)}</dd></div><div><dt>Last updated</dt><dd>{formatDateTime(lead.updated_at)}</dd></div></dl><div className="status-control"><h3>Change status</h3><StatusForm leadId={lead.id} customerName={lead.name} currentStage={lead.pipeline_stage} stages={config.pipeline_stages} returnTo="detail" /></div></section>
 
       <section className="detail-panel"><h2>Email</h2><dl className="detail-list"><div><dt>Owner notice</dt><dd><EmailStatusChip status={ownerEmailStatus} />{ownerNotification?.status === "failed" && <span className="muted-copy"> {String(ownerNotification.content.message ?? "")}</span>}</dd></div><div><dt>Customer reply</dt><dd><EmailStatusChip status={customerEmailStatus} />{customerReply?.content.delivered_to && <span className="muted-copy"> → {String(customerReply.content.delivered_to)}</span>}</dd></div></dl></section>
