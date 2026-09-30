@@ -1,5 +1,7 @@
 # Tavo
 
+**Automation & Integrations milestone (local branch):** scoped external API keys, a versioned lead API, signed persistent webhooks with delivery logs/retries, an owner Integrations area, and source/tags/follow-up/appointment fields. See [integration architecture and API](docs/INTEGRATIONS.md) and [Make setup and evidence requirements](docs/MAKE_WORKFLOWS.md). The public deployment below is the previous baseline; this milestone has not been deployed. **Live Make A/B and Google Calendar are NOT VERIFIED** because credentials were unavailable. Zapier/n8n are compatible with the HTTP contract; no executed workflows or experience are claimed.
+
 A working CRM and inquiry-automation demo built for a **fictional cleaning business**. Tavo is the software product; Acme Cleaning Services is the sample business. This is a portfolio piece that can be tailored to another service business.
 
 **Live demo:** [Open Tavo](https://tavo-web-6d8p.onrender.com) · [API health](https://tavo-api.onrender.com/api/health). The full synthetic inquiry workflow has passed on the public deployment with Neon PostgreSQL, OpenRouter, and Resend's safe test address. See [verification](docs/VERIFICATION.md) for the exact checks and limits.

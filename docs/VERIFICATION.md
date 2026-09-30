@@ -1,5 +1,17 @@
 # Tavo verification record
 
+## Automation & Integrations — 2026-09-30 local verification
+
+Baseline cloned at `609776ae907aa8d2c8f961a9e29ee23d7861ed4c`, exactly matching the requested master baseline. README and this record were read before edits. Initial 59 backend tests, frontend typecheck and production build passed. Changes are on `feature/automation-integrations`; no production deployment, external service changes, secret rotation, or old Resend usage occurred.
+
+- Backend full offline suite: **98 cases** (59 previous plus 39 new). All pass; one upstream Starlette/httpx deprecation warning remains. New coverage exercises hashed/revoked/scoped credentials, separate auth, creation/AI persistence, write idempotency, notes/stage/appointment workflows, subscriptions, transactional events, signatures/tampering/expiry, delivery status, non-2xx/timeout failures, backoff/manual retries, exhaustion, worker interruption, duplicate claims, encrypted config, missing configuration, authorization, demo blocking, URL and private DNS rejection.
+- SQLite fresh upgrade through 0004, Alembic check, downgrade to 0003 then upgrade, and populated 0003 upgrade with lead preservation/tag backfill pass in migration tests. A real execution of **0004 on PostgreSQL is NOT VERIFIED**; no local PostgreSQL runtime was available. Earlier Neon checks below concern the previous baseline only.
+- Frontend TypeScript and Next.js production build pass, including the new authenticated Integrations route. Browser QA uses a separate localhost database, fake AI/email and an explicitly named Offline receiver (mock). Desktop 1440×1000 and mobile 390×844 render checks show no horizontal overflow; delivery attempt history is visible. Screenshots in `docs/evidence/` are synthetic UI evidence, not real Make delivery evidence.
+- Added configuration: INTEGRATION_ENCRYPTION_KEY, RATE_LIMIT_INTEGRATION, RATE_LIMIT_INTEGRATION_WINDOW_SECONDS. No credentials appear in the screenshots; destination paths/signing secrets are not listed by the API/UI.
+- Make Scenario A: **NOT VERIFIED**, no credentials. Make Scenario B / Google Sheets: **NOT VERIFIED**, no credentials. Optional Google Calendar: **NOT VERIFIED**, documented recipe. Zapier/n8n: compatible design only, no executed workflow claim. Exact setup and acceptance evidence are in [MAKE_WORKFLOWS.md](MAKE_WORKFLOWS.md).
+
+The historical hosted verification below remains a record of the previously deployed baseline, not a claim that these additions are deployed. A future rollout needs an authorized development PostgreSQL check, API/web migrations, encryption configuration and a running delivery worker before any production deployment.
+
 Updated 2026-09-29. Public frontend: https://tavo-web-6d8p.onrender.com. Public API: https://tavo-api.onrender.com. Both run as Render Free web services backed by a separate Neon Free PostgreSQL 18 project in Singapore.
 
 ## Local checks
