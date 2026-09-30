@@ -14,6 +14,7 @@ from . import settings
 
 # bucket -> (default limit, default window in seconds, when to retry text)
 BUCKETS: dict[str, tuple[int, int, str]] = {
+    "integration": (120, 60, "integration requests"),
     "inquiry": (20, 3600, "public inquiry submissions"),
     "simulate": (5, 600, "simulated demo inquiries"),
     "classify": (10, 3600, "AI analyses"),

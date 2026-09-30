@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from . import leads, ratelimit, settings
+from . import leads, ratelimit, settings, integrations
 from .ai import AIProvider, AIProviderError, draft_reply, get_ai_provider
 from .auth import authenticate, create_token, current_user
 from .business import BUSINESS
@@ -25,6 +25,7 @@ def configure_cors(application: FastAPI, origin: str) -> None:
 
 
 app = FastAPI(title="Tavo API")
+app.include_router(integrations.router)
 configure_cors(app, settings.env("FRONTEND_ORIGIN", "") or "")
 
 
@@ -251,13 +252,10 @@ def update_lead(
     lead = lead_or_404(db, lead_id, user)
     if user.is_demo:
         raise HTTPException(403, "Demo leads cannot be edited")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        if value is None:
-            raise HTTPException(422, f"{field} cannot be null")
-        setattr(lead, field, value)
-    db.commit()
-    db.refresh(lead)
-    return lead
+    try:
+        return leads.apply_update(db, lead, payload)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
 
 
 @app.delete("/api/leads/{lead_id}", status_code=status.HTTP_204_NO_CONTENT)

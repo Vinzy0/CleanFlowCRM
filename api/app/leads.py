@@ -7,13 +7,14 @@ simulation and the demo seed all travel the same code path.
 import hashlib
 import json
 import logging
+from datetime import timezone
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from . import demo, settings
+from . import demo, settings, webhooks
 from .ai import AIProvider, AIProviderError, Classification, classify
 from .business import BUSINESS
 from .email import EmailProvider
@@ -29,8 +30,14 @@ class InquiryConflict(Exception):
 
 
 def fingerprint_for(payload: LeadCreate) -> str:
+    content = payload.model_dump(mode="json", exclude={"inquiry_key"})
+    # Keep pre-0004 inquiry retries valid when the new optional fields are absent.
+    if content.get("source") is None:
+        content.pop("source", None)
+    if not content.get("tags"):
+        content.pop("tags", None)
     return hashlib.sha256(
-        json.dumps(payload.model_dump(mode="json", exclude={"inquiry_key"}), sort_keys=True).encode()
+        json.dumps(content, sort_keys=True).encode()
     ).hexdigest()
 
 
@@ -40,6 +47,8 @@ def create_lead(
     *,
     is_demo: bool = False,
     scenario_slug: str | None = None,
+    commit: bool = True,
+    actor: str = "public_inquiry",
 ) -> tuple[Lead, bool]:
     """Insert the lead and its ``lead_created`` activity. No AI, no email.
 
@@ -65,9 +74,11 @@ def create_lead(
         if existing is not None:
             return _existing_inquiry(existing, fingerprint), False
         raise
-    db.add(Activity(lead_id=lead.id, type="lead_created", status="completed", content={}))
-    db.commit()
-    db.refresh(lead)
+    db.add(Activity(lead_id=lead.id, type="lead_created", status="completed", content={"actor": actor}))
+    webhooks.emit(db, lead, "lead.created", f"lead.created:{lead.id}")
+    if commit:
+        db.commit()
+        db.refresh(lead)
     return lead, True
 
 
@@ -111,6 +122,7 @@ def run_classification(
         "priority": result.priority,
         "reused": stored is not None,
     }
+    webhooks.emit(db, lead, "lead.classified", f"classification:{activity.id}", activity.content)
     db.commit()
     db.refresh(lead)
     return result
@@ -156,18 +168,44 @@ def notify_new_lead(db: Session, lead: Lead, email_provider: EmailProvider) -> A
         return None
 
 
-def apply_status(db: Session, lead: Lead, stage: str) -> Lead:
+def apply_status(db: Session, lead: Lead, stage: str, *, commit: bool = True) -> Lead:
     if stage not in BUSINESS["pipeline_stages"]:
         raise ValueError("Unknown pipeline stage")
     previous = lead.pipeline_stage
     if previous != stage:
         lead.pipeline_stage = stage
-        db.add(Activity(
+        activity = Activity(
             lead_id=lead.id,
             type="status_changed",
             status="completed",
             content={"from": previous, "to": stage},
-        ))
+        )
+        db.add(activity)
+        db.flush()
+        webhooks.emit(db, lead, "lead.stage_changed", f"stage:{activity.id}", {"from": previous, "to": stage})
+        if commit:
+            db.commit()
+            db.refresh(lead)
+    return lead
+
+
+def apply_update(db: Session, lead: Lead, payload, *, commit: bool = True, actor: str = "owner") -> Lead:
+    values = payload.model_dump(exclude_unset=True)
+    for field, value in values.items():
+        if value is None and field not in {"source", "next_action", "next_follow_up", "appointment_at"}:
+            raise ValueError(f"{field} cannot be null")
+    previous_appointment = lead.appointment_at
+    if previous_appointment is not None and previous_appointment.tzinfo is None:
+        previous_appointment = previous_appointment.replace(tzinfo=timezone.utc)
+    for field, value in values.items():
+        setattr(lead, field, value)
+    if values:
+        activity = Activity(lead_id=lead.id, type="lead_updated", status="completed", content={"fields": sorted(values), "actor": actor})
+        db.add(activity)
+        db.flush()
+        if lead.appointment_at is not None and lead.appointment_at != previous_appointment:
+            webhooks.emit(db, lead, "appointment.booked", f"appointment:{activity.id}")
+    if commit:
         db.commit()
         db.refresh(lead)
     return lead

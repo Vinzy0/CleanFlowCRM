@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import settings
+from . import settings, webhooks
 from .email import EmailMessage, EmailNotConfiguredError, EmailProvider, EmailProviderError, email_settings
 from .models import AIAnalysis, Activity, Lead
 
@@ -230,6 +230,7 @@ def _attempt(
     record.type = "email_sent"
     record.status = "sent"
     record.content = {**(record.content or {}), "provider_id": provider_id, "message": "Email sent."}
+    _email_event(db, record)
     db.commit()
     db.refresh(record)
     return record
@@ -251,6 +252,15 @@ def _failed(
         content["to"] = intended_recipient
         content["delivered_to"] = delivered_to
     record.content = content
+    _email_event(db, record)
     db.commit()
     db.refresh(record)
     return record
+
+
+def _email_event(db: Session, record: Activity) -> None:
+    lead = db.get(Lead, record.lead_id)
+    webhooks.emit(db, lead, "email.sent" if record.status == "sent" else "email.failed",
+                  f"email:{record.id}:{(record.content or {}).get('attempts', 1)}:{record.status}",
+                  {"activity_id": record.id, "email_type": record.content.get("email_type"),
+                   "sandboxed": bool(record.content.get("sandboxed")), "reason": record.content.get("reason")})

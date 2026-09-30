@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -17,6 +17,15 @@ class LeadCreate(BaseModel):
     property_type: str
     preferred_date: date
     message: str = Field(min_length=10, max_length=5000)
+    source: str | None = Field(default=None, min_length=1, max_length=120)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("tags")
+    @classmethod
+    def valid_tags(cls, value: list[str]) -> list[str]:
+        if any(not tag.strip() or len(tag.strip()) > 40 for tag in value):
+            raise ValueError("Tags must contain 1 to 40 characters")
+        return list(dict.fromkeys(tag.strip() for tag in value))
 
     @field_validator("name")
     @classmethod
@@ -58,6 +67,23 @@ class LeadUpdate(BaseModel):
     property_type: str | None = None
     preferred_date: date | None = None
     message: str | None = Field(default=None, min_length=10, max_length=5000)
+    source: str | None = Field(default=None, min_length=1, max_length=120)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    next_action: str | None = Field(default=None, min_length=1, max_length=500)
+    next_follow_up: datetime | None = None
+    appointment_at: datetime | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def valid_tags(cls, value: list[str]) -> list[str]:
+        return LeadCreate.valid_tags(value)
+
+    @field_validator("next_follow_up", "appointment_at")
+    @classmethod
+    def aware_datetime(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("Include a timezone offset")
+        return value.astimezone(timezone.utc) if value is not None else None
 
     @field_validator("name")
     @classmethod
@@ -95,8 +121,19 @@ class LeadRead(BaseModel):
     pipeline_stage: str
     priority: str | None
     is_demo: bool = False
+    source: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    next_action: str | None = None
+    next_follow_up: datetime | None = None
+    appointment_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("created_at", "updated_at", "next_follow_up", "appointment_at")
+    @classmethod
+    def utc_timestamps(cls, value: datetime | None) -> datetime | None:
+        # SQLite loses timezone metadata; all persisted workflow times are UTC.
+        return value.replace(tzinfo=timezone.utc) if value is not None and value.tzinfo is None else value
 
 
 class ActivityRead(BaseModel):
@@ -127,6 +164,7 @@ class LeadDetailRead(LeadRead):
 
 
 class StatusChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     stage: str
 
     @field_validator("stage")
