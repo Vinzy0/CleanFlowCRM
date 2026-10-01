@@ -84,12 +84,16 @@ def deliver(db: Session, delivery_id: int, sender=send_webhook) -> bool:
     attempt = WebhookAttempt(delivery_id=delivery.id, number=delivery.attempts, started_at=now)
     db.add(attempt)
     db.commit()  # Persist the claim and attempt BEFORE making a network request.
+    # Keep the claim identity across the network call. An expired worker can return
+    # after recovery and a newer attempt; it must not overwrite that result.
+    number, attempt_id = attempt.number, attempt.id
+    outcome = {}
+    delivery_outcome = {"lease_until": None}
     endpoint = db.get(WebhookEndpoint, delivery.endpoint_id)
     owner = db.get(User, endpoint.owner_id) if endpoint else None
     if endpoint is None or not endpoint.active or owner is None or owner.is_demo:
-        delivery.status = "cancelled"
-        attempt.status = "cancelled"
-        attempt.result = "Integration removed or owner unavailable"
+        delivery_outcome["status"] = "cancelled"
+        outcome.update(status="cancelled", result="Integration removed or owner unavailable")
     else:
         try:
             event = db.get(WebhookEvent, delivery.event_id)
@@ -100,23 +104,29 @@ def deliver(db: Session, delivery_id: int, sender=send_webhook) -> bool:
                 "X-Tavo-Event-Id": event.id, "Idempotency-Key": event.id,
                 "X-Tavo-Signature": signature(decrypt(endpoint.secret_ciphertext), timestamp, body),
             })
-            attempt.http_status = status
-            attempt.result = f"HTTP {status}"
-            attempt.status = "succeeded" if 200 <= status < 300 else "failed"
+            outcome.update(http_status=status, result=f"HTTP {status}",
+                           status="succeeded" if 200 <= status < 300 else "failed")
         except Exception as exc:
             # Never persist exception text: it can contain endpoint tokens/secrets.
-            attempt.status = "failed"
-            attempt.result = ("Destination rejected" if isinstance(exc, ValueError) else
-                              "Timeout" if isinstance(exc, TimeoutError) else "Transport or configuration failure")
-        if attempt.status == "succeeded":
-            delivery.status = "succeeded"
-        elif delivery.attempts < MAX_ATTEMPTS:
-            delivery.status = "pending"
-            delivery.next_attempt_at = now_utc() + timedelta(seconds=30 * 2 ** (delivery.attempts - 1))
+            outcome.update(status="failed", result=("Destination rejected" if isinstance(exc, ValueError) else
+                           "Timeout" if isinstance(exc, TimeoutError) else "Transport or configuration failure"))
+        if outcome["status"] == "succeeded":
+            delivery_outcome["status"] = "succeeded"
+        elif number < MAX_ATTEMPTS:
+            delivery_outcome.update(status="pending", next_attempt_at=now_utc() + timedelta(seconds=30 * 2 ** (number - 1)))
         else:
-            delivery.status = "failed"
-    delivery.lease_until = None
-    attempt.finished_at = now_utc()
+            delivery_outcome["status"] = "failed"
+    finalized = db.execute(update(WebhookDelivery).where(
+        WebhookDelivery.id == delivery_id, WebhookDelivery.status == "sending",
+        WebhookDelivery.attempts == number,
+    ).values(**delivery_outcome).execution_options(synchronize_session="fetch"))
+    if not finalized.rowcount:
+        db.rollback()
+        db.expire_all()
+        return True  # A request ran, but recovery/newer attempt owns its outcome.
+    db.execute(update(WebhookAttempt).where(
+        WebhookAttempt.id == attempt_id, WebhookAttempt.status == "sending",
+    ).values(**outcome, finished_at=now_utc()).execution_options(synchronize_session="fetch"))
     db.commit()
     return True
 

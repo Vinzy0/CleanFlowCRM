@@ -132,8 +132,11 @@ class LeadRead(BaseModel):
     @field_validator("created_at", "updated_at", "next_follow_up", "appointment_at")
     @classmethod
     def utc_timestamps(cls, value: datetime | None) -> datetime | None:
-        # SQLite loses timezone metadata; all persisted workflow times are UTC.
-        return value.replace(tzinfo=timezone.utc) if value is not None and value.tzinfo is None else value
+        # SQLite loses timezone metadata; PostgreSQL reads use its session zone.
+        # Publish one stable UTC representation regardless of the database.
+        if value is None:
+            return None
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
 class ActivityRead(BaseModel):

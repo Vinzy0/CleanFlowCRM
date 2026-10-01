@@ -143,9 +143,15 @@ Socket/connect/TLS timeout: 10 seconds per blocking operation. DNS uses the OS r
 
 Automatic attempts: at most five, with delays of 30, 60, 120, 240 seconds after failures. This applies to timeouts and all non-2xx responses. An owner can queue a failed attempt immediately, including one waiting for backoff. A successful/cancelled/sending delivery cannot be retried. Manual retry preserves event ID/body and increments the lifetime attempt count; after attempt five, another failure stops until an explicit manual retry.
 
-Atomic database claims prevent concurrent senders. Sending claims expire after five minutes; a later worker detects an interrupted attempt, marks it failed with **receiver outcome unknown**, and leaves manual recovery to the owner. Check the receiver first. No exactly-once or strict event-ordering guarantee exists; receiver dedupe is essential because network failure can follow successful downstream work. Removed endpoints cancel queued/failed deliveries and erase their encrypted credential while preserving logs. A send already in flight cannot be recalled.
+Atomic database claims prevent concurrent senders. Sending claims expire after five minutes; a later worker detects an interrupted attempt, marks it failed with **receiver outcome unknown**, and leaves manual recovery to the owner. A late response from an expired attempt cannot overwrite recovery or a newer attempt's result. Check the receiver first. No exactly-once or strict event-ordering guarantee exists; receiver dedupe is essential because network failure can follow successful downstream work. Removed endpoints cancel queued/failed deliveries and erase their encrypted credential while preserving logs. A send already in flight cannot be recalled.
 
 Missing encryption/configuration never becomes a fake success. Lead creation is independent of receiver availability. Database failures roll back the corresponding business transaction; external network failures stay in the outbox. Existing AI/email failure behavior remains visible. API keys do not expire automatically; revoke unused credentials. Integration rate limiting retains the existing single-process/shared-proxy limitation. Outbox/attempt/request data has no automatic retention cleanup; schedule policy-based maintenance before a larger client deployment.
+
+## Local PostgreSQL verification
+
+The default `python -m pytest -q` suite stays offline with SQLite and fake AI/email/HTTP providers. To repeat it against PostgreSQL, set **test-only** `TAVO_TEST_POSTGRES_URL` to a `postgresql+psycopg` URL for a dedicated database whose name starts with `tavo_test_`, hosted on localhost. Supply its password through your local environment without printing it or committing it. The test account needs permission to create/drop schemas. Do not use an application database.
+
+Each API test creates a random isolated schema and drops it afterward. The optional PostgreSQL migration test exercises fresh upgrade, Alembic check, downgrade to 0003, synthetic populated upgrade/tag backfill, and another drift check. Without that setting, the PostgreSQL-specific case is skipped. The runtime test still mocks external providers and does not establish live Make or AI-provider verification.
 
 ## Verification and portfolio wording
 

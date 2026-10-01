@@ -1,5 +1,9 @@
 import pytest
+import os
+from contextlib import contextmanager
 from sqlalchemy import create_engine
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
@@ -12,6 +16,29 @@ from app.db import Base, get_db
 from app.email import EmailProviderError, get_email_provider
 from app.main import app
 from app.models import User
+
+
+@contextmanager
+def postgres_schema():
+    """Optional localhost-only PostgreSQL checks, never against an application DB."""
+    raw = os.getenv("TAVO_TEST_POSTGRES_URL")
+    if not raw:
+        raise ValueError("TAVO_TEST_POSTGRES_URL is not configured")
+    url = make_url(raw)
+    if (url.get_backend_name() != "postgresql" or url.host not in {"localhost", "127.0.0.1", "::1"}
+            or not (url.database or "").startswith("tavo_test_")):
+        raise ValueError("PostgreSQL tests require localhost and a dedicated tavo_test_ database")
+    schema = "test_" + uuid4().hex
+    admin = create_engine(url)
+    with admin.begin() as db:
+        db.execute(text(f'CREATE SCHEMA "{schema}"'))
+    isolated = url.update_query_dict({"options": f"-csearch_path={schema}"})
+    try:
+        yield isolated
+    finally:
+        with admin.begin() as db:
+            db.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        admin.dispose()
 
 
 class FakeProvider:
@@ -131,7 +158,11 @@ class Crm:
 @pytest.fixture
 def crm(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "cleanflow-test-secret-at-least-thirty-two-characters")
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    schema_context = postgres_schema() if os.getenv("TAVO_TEST_POSTGRES_URL") else None
+    if schema_context:
+        engine = create_engine(schema_context.__enter__())
+    else:
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
 
     def test_db():
@@ -150,3 +181,5 @@ def crm(monkeypatch):
     yield harness
     app.dependency_overrides.pop(get_db, None)
     engine.dispose()
+    if schema_context:
+        schema_context.__exit__(None, None, None)

@@ -362,6 +362,35 @@ def test_atomic_claim_prevents_second_sender(crm):
         assert calls == ["first"]
 
 
+def test_expired_sender_cannot_overwrite_recovery_or_newer_attempt(crm):
+    endpoint(crm)
+    crm.new_lead()
+    with crm.session() as db:
+        delivery_id = db.scalar(select(WebhookDelivery.id))
+
+        def delayed_sender(*args):
+            with crm.session() as other:
+                delivery = other.get(WebhookDelivery, delivery_id)
+                delivery.lease_until = now_utc() - timedelta(seconds=1)
+                other.commit()
+                webhooks.recover_expired(other)
+                # Reconcile and retry while the old network operation is still running.
+                delivery.status = "pending"
+                delivery.next_attempt_at = now_utc() - timedelta(seconds=1)
+                other.commit()
+                assert webhooks.deliver(other, delivery_id, lambda *a: 204)
+            return 503
+
+        assert webhooks.deliver(db, delivery_id, delayed_sender)
+        db.expire_all()
+        delivery = db.get(WebhookDelivery, delivery_id)
+        assert delivery.status == "succeeded" and delivery.attempts == 2
+        history = db.scalars(select(WebhookAttempt).order_by(WebhookAttempt.number)).all()
+        assert history[0].status == "failed" and "unknown" in history[0].result
+        assert history[0].http_status is None
+        assert history[1].status == "succeeded" and history[1].http_status == 204
+
+
 def test_receiver_rejects_tampering_expiry_and_malformed_signature():
     from app.webhook_verify import verify_signature
     body = b'{"id":"synthetic-event"}'
