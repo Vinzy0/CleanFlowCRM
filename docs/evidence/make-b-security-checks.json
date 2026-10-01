@@ -1,0 +1,56 @@
+{
+  "checked_at": "2026-10-01T09:06:35.047316+00:00",
+  "scenario_id": 6468884,
+  "synthetic_tests_only": true,
+  "results": [
+    {
+      "case": "valid_signature_unsupported_event",
+      "expected_status": 422,
+      "actual_status": 422,
+      "passed": true,
+      "response": "{\"error\":\"Unsupported event, identity or sheet row capacity\"}"
+    },
+    {
+      "case": "invalid_digest",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"error\":\"Invalid signature or stale timestamp\"}"
+    },
+    {
+      "case": "expired_timestamp",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"error\":\"Invalid signature or stale timestamp\"}"
+    },
+    {
+      "case": "tampered_raw_body",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"error\":\"Invalid signature or stale timestamp\"}"
+    },
+    {
+      "case": "event_header_mismatch",
+      "expected_status": 422,
+      "actual_status": 422,
+      "passed": true,
+      "response": "{\"error\":\"Unsupported event, identity or sheet row capacity\"}"
+    },
+    {
+      "case": "missing_signature",
+      "expected_status": 401,
+      "actual_status": 401,
+      "passed": true,
+      "response": "{\"error\":\"Invalid signature or stale timestamp\"}"
+    },
+    {
+      "case": "malformed_authenticated_json",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "response": "Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+    }
+  ]
+}

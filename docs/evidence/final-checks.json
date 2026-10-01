@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-10-01T09:33:44.943332+00:00",
+  "backend_offline": {
+    "passed": 99,
+    "skipped": 1,
+    "seconds": 23.98,
+    "warning": "upstream Starlette/httpx deprecation"
+  },
+  "frontend_typecheck": "PASS",
+  "frontend_production_build": "PASS",
+  "frontend_notice": "ignored lockfile outside Git repository",
+  "hosted_staging_alembic_check": "PASS",
+  "migration_revision": "0004",
+  "isolated_postgresql_suite_prior_unchanged_application": {
+    "passed": 100,
+    "postgresql_version": "17.11",
+    "fresh_and_populated_migrations": "PASS",
+    "downgrade_upgrade": "PASS",
+    "alembic_check": "PASS"
+  },
+  "source_and_exact_live_credential_scans": "PASS: zero findings",
+  "evidence_byte_and_replay_consistency": "PASS",
+  "documentation_local_links": "PASS",
+  "review_scope": "Final diff contains documentation, credential-free template and synthetic evidence only; prior application diff reviewed in implementation phase"
+}

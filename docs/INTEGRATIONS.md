@@ -1,6 +1,6 @@
 # Tavo Automation & Integrations
 
-Implementation status: **Tavo functionality verified offline and deployed to isolated staging; Make A VERIFIED; Make B / Sheets NOT VERIFIED pending Google OAuth consent.** See [live evidence](STAGING_VERIFICATION.md). The production feature rollout was not performed; its Resend sending key was explicitly rotated. Do not claim the full two-workflow milestone, or executed Zapier/n8n/Sheets/Calendar workflows.
+Implementation status: **Tavo functionality verified offline and deployed to isolated staging; Make A and Make B / Google Sheets VERIFIED with actual live executions and duplicate replays.** See [live evidence](STAGING_VERIFICATION.md). Production feature code remains on the original master baseline; its Resend sending key was explicitly rotated. Zapier/n8n are compatible only; Calendar remains an unexecuted recipe.
 
 ## Architecture
 
@@ -157,6 +157,8 @@ Each API test creates a random isolated schema and drops it afterward. The optio
 
 See [verification record](VERIFICATION.md) for exact local checks and [Make setup](MAKE_WORKFLOWS.md) for live acceptance steps. [Desktop](evidence/integrations-desktop.jpg) and [mobile](evidence/integrations-mobile.jpg) images use a synthetic database and an **Offline receiver (mock)**. They prove presentation, not live delivery.
 
-The full portfolio wording remains unchanged until both Make scenarios pass. Scenario A's actual Make intake, real AI classification, CRM persistence and duplicate replay are independently evidenced; Scenario B still requires consent and a verified Sheets action. See [live evidence](STAGING_VERIFICATION.md).
+Both Make scenarios now meet the live acceptance checklist: intake, real AI, CRM persistence, signed outbound receipt, actual Google Sheets action and duplicate prevention. See [live evidence](STAGING_VERIFICATION.md).
 
-Only after both Make scenarios meet their evidence checklist may the claim include real Make workflows. Zapier and n8n are compatible with this HTTP/JSON design; no platform execution or professional experience is claimed.
+Verified wording: “I built a custom CRM with authenticated external APIs, secure event-driven webhooks, integration logging and retries, AI lead processing, and real Make.com workflows connecting CRM events with external business tools.”
+
+Zapier and n8n are compatible with this HTTP/JSON design; no platform execution or professional experience is claimed.

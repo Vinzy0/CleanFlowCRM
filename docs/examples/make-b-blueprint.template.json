@@ -1,0 +1,704 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0,
+          "name": "Signed Tavo staging events"
+        }
+      },
+      "parameters": {
+        "hook": 0,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 2,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "signature",
+            "value": "{{get(map(1.__IMTHEADERS__; \"value\"; \"name\"; \"x-tavo-signature\"); 1)}}"
+          },
+          {
+            "name": "header_event_id",
+            "value": "{{get(map(1.__IMTHEADERS__; \"value\"; \"name\"; \"x-tavo-event-id\"); 1)}}"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0,
+          "name": "Read signature and event identity"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "timestamp",
+            "value": "{{replace(get(split(2.signature; \",\"); 1); \"t=\"; emptystring)}}"
+          },
+          {
+            "name": "digest",
+            "value": "{{replace(get(split(2.signature; \",\"); 2); \"v1=\"; emptystring)}}"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0,
+          "name": "Extract signature timestamp and digest"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "util:SetVariable",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "scope": "roundtrip",
+        "name": "signed_input",
+        "value": "{{3.timestamp}}.{{1.value}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0,
+          "name": "Preserve exact signed bytes"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "parameters": {},
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0,
+          "name": "Verify HMAC before JSON or business actions"
+        }
+      },
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 6,
+              "module": "json:ParseJSON",
+              "version": 1,
+              "parameters": {
+                "type": 0
+              },
+              "mapper": {
+                "json": "{{1.value}}"
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1500,
+                  "y": 0,
+                  "name": "Parse authenticated event"
+                }
+              },
+              "filter": {
+                "name": "Valid HMAC and fresh timestamp",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{sha256(4.value; \"hex\"; \"<TAVO_SIGNING_SECRET>\"; \"text\")}}",
+                      "o": "text:equal",
+                      "b": "{{3.digest}}"
+                    },
+                    {
+                      "a": "{{length(3.digest)}}",
+                      "o": "number:equal",
+                      "b": "64"
+                    },
+                    {
+                      "a": "{{length(3.timestamp)}}",
+                      "o": "number:equal",
+                      "b": "10"
+                    },
+                    {
+                      "a": "{{3.timestamp}}",
+                      "o": "number:greaterorequal",
+                      "b": "{{formatDate(addSeconds(now; -300); \"X\")}}"
+                    },
+                    {
+                      "a": "{{3.timestamp}}",
+                      "o": "number:lessorequal",
+                      "b": "{{formatDate(addSeconds(now; 300); \"X\")}}"
+                    }
+                  ]
+                ]
+              },
+              "onerror": [
+                {
+                  "id": 30,
+                  "module": "gateway:WebhookRespond",
+                  "version": 1,
+                  "parameters": {},
+                  "mapper": {
+                    "status": "400",
+                    "body": "{\"error\": \"Malformed authenticated JSON\"}",
+                    "headers": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ]
+                  },
+                  "metadata": {
+                    "designer": {
+                      "x": 0,
+                      "y": 0,
+                      "name": "Malformed authenticated JSON"
+                    }
+                  }
+                },
+                {
+                  "id": 31,
+                  "module": "builtin:Ignore",
+                  "version": 1,
+                  "parameters": {},
+                  "mapper": {},
+                  "metadata": {
+                    "designer": {
+                      "x": 0,
+                      "y": 0,
+                      "name": "Keep failure visible; allow Tavo retry"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "module": "builtin:BasicRouter",
+              "version": 1,
+              "parameters": {},
+              "mapper": {},
+              "metadata": {
+                "designer": {
+                  "x": 1800,
+                  "y": 0,
+                  "name": "Validate event schema and identity"
+                }
+              },
+              "routes": [
+                {
+                  "flow": [
+                    {
+                      "id": 8,
+                      "module": "datastore:ExistRecord",
+                      "version": 1,
+                      "parameters": {
+                        "datastore": 0
+                      },
+                      "mapper": {
+                        "key": "{{6.id}}"
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 2100,
+                          "y": 0,
+                          "name": "Check completed event"
+                        }
+                      },
+                      "filter": {
+                        "name": "Supported event and matching identity",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{6.type}}",
+                              "o": "text:equal",
+                              "b": "lead.created"
+                            },
+                            {
+                              "a": "{{6.schema_version}}",
+                              "o": "number:equal",
+                              "b": "1"
+                            },
+                            {
+                              "a": "{{6.id}}",
+                              "o": "text:equal",
+                              "b": "{{2.header_event_id}}"
+                            },
+                            {
+                              "a": "{{length(6.id)}}",
+                              "o": "number:equal",
+                              "b": "36"
+                            },
+                            {
+                              "a": "{{6.data.lead.id}}",
+                              "o": "number:greater",
+                              "b": "0"
+                            },
+                            {
+                              "a": "{{6.data.lead.id}}",
+                              "o": "number:less",
+                              "b": "1000"
+                            }
+                          ]
+                        ]
+                      },
+                      "onerror": [
+                        {
+                          "id": 32,
+                          "module": "gateway:WebhookRespond",
+                          "version": 1,
+                          "parameters": {},
+                          "mapper": {
+                            "status": "503",
+                            "body": "{\"error\": \"Event store unavailable\"}",
+                            "headers": [
+                              {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                              }
+                            ]
+                          },
+                          "metadata": {
+                            "designer": {
+                              "x": 0,
+                              "y": 0,
+                              "name": "Event store unavailable"
+                            }
+                          }
+                        },
+                        {
+                          "id": 33,
+                          "module": "builtin:Ignore",
+                          "version": 1,
+                          "parameters": {},
+                          "mapper": {},
+                          "metadata": {
+                            "designer": {
+                              "x": 0,
+                              "y": 0,
+                              "name": "Keep failure visible; allow Tavo retry"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": 9,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": {},
+                      "metadata": {
+                        "designer": {
+                          "x": 2400,
+                          "y": 0,
+                          "name": "Dedupe before downstream action"
+                        }
+                      },
+                      "routes": [
+                        {
+                          "flow": [
+                            {
+                              "id": 10,
+                              "module": "google-sheets:makeAPICall",
+                              "version": 2,
+                              "parameters": {
+                                "__IMTCONN__": 0
+                              },
+                              "mapper": {
+                                "url": "/spreadsheets/<SPREADSHEET_ID>/values/Leads!A{{6.data.lead.id + 1}}:H{{6.data.lead.id + 1}}",
+                                "method": "PUT",
+                                "headers": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  }
+                                ],
+                                "qs": [
+                                  {
+                                    "key": "valueInputOption",
+                                    "value": "RAW"
+                                  }
+                                ],
+                                "body": "{\"values\": [[\"{{escapeJSON(6.id)}}\", \"{{6.data.lead.id}}\", \"{{escapeJSON(6.data.lead.name)}}\", \"{{escapeJSON(6.data.lead.email)}}\", \"{{escapeJSON(6.data.lead.service_type)}}\", \"{{escapeJSON(6.data.lead.pipeline_stage)}}\", \"{{escapeJSON(6.data.lead.source)}}\", \"{{escapeJSON(6.occurred_at)}}\"]]}"
+                              },
+                              "metadata": {
+                                "designer": {
+                                  "x": 2700,
+                                  "y": 0,
+                                  "name": "Upsert CRM lead row by stable lead ID"
+                                }
+                              },
+                              "filter": {
+                                "name": "New event",
+                                "conditions": [
+                                  [
+                                    {
+                                      "a": "{{8.exist}}",
+                                      "o": "boolean:equal",
+                                      "b": "false"
+                                    }
+                                  ]
+                                ]
+                              },
+                              "onerror": [
+                                {
+                                  "id": 34,
+                                  "module": "gateway:WebhookRespond",
+                                  "version": 1,
+                                  "parameters": {},
+                                  "mapper": {
+                                    "status": "503",
+                                    "body": "{\"error\": \"Google Sheets write failed\"}",
+                                    "headers": [
+                                      {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                      }
+                                    ]
+                                  },
+                                  "metadata": {
+                                    "designer": {
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Google Sheets write failed"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": 35,
+                                  "module": "builtin:Ignore",
+                                  "version": 1,
+                                  "parameters": {},
+                                  "mapper": {},
+                                  "metadata": {
+                                    "designer": {
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Keep failure visible; allow Tavo retry"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": 11,
+                              "module": "datastore:AddRecord",
+                              "version": 1,
+                              "parameters": {
+                                "datastore": 0
+                              },
+                              "mapper": {
+                                "key": "{{6.id}}",
+                                "overwrite": true,
+                                "data": {
+                                  "lead_id": "{{6.data.lead.id}}",
+                                  "sheet_range": "Leads!A{{6.data.lead.id + 1}}:H{{6.data.lead.id + 1}}",
+                                  "completed_at": "{{now}}"
+                                }
+                              },
+                              "metadata": {
+                                "designer": {
+                                  "x": 3000,
+                                  "y": 0,
+                                  "name": "Record completion after row succeeds"
+                                }
+                              },
+                              "onerror": [
+                                {
+                                  "id": 36,
+                                  "module": "gateway:WebhookRespond",
+                                  "version": 1,
+                                  "parameters": {},
+                                  "mapper": {
+                                    "status": "503",
+                                    "body": "{\"error\": \"Completion record failed; safe to retry\"}",
+                                    "headers": [
+                                      {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                      }
+                                    ]
+                                  },
+                                  "metadata": {
+                                    "designer": {
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Completion record failed; safe to retry"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": 37,
+                                  "module": "builtin:Ignore",
+                                  "version": 1,
+                                  "parameters": {},
+                                  "mapper": {},
+                                  "metadata": {
+                                    "designer": {
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Keep failure visible; allow Tavo retry"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": 12,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "status": "200",
+                                "body": "{\"event_id\":\"{{6.id}}\",\"lead_id\":{{6.data.lead.id}},\"result\":\"upserted\",\"sheet_range\":\"Leads!A{{6.data.lead.id + 1}}:H{{6.data.lead.id + 1}}\"}",
+                                "headers": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  }
+                                ]
+                              },
+                              "metadata": {
+                                "designer": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Acknowledge completed Sheets action"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "flow": [
+                            {
+                              "id": 13,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "status": "200",
+                                "body": "{\"event_id\":\"{{6.id}}\",\"lead_id\":{{6.data.lead.id}},\"result\":\"duplicate\"}",
+                                "headers": [
+                                  {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                  }
+                                ]
+                              },
+                              "metadata": {
+                                "designer": {
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Acknowledge previously completed event"
+                                }
+                              },
+                              "filter": {
+                                "name": "Already completed event",
+                                "conditions": [
+                                  [
+                                    {
+                                      "a": "{{8.exist}}",
+                                      "o": "boolean:equal",
+                                      "b": "true"
+                                    }
+                                  ]
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 14,
+                      "module": "gateway:WebhookRespond",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": {
+                        "status": "422",
+                        "body": "{\"error\":\"Unsupported event, identity or sheet row capacity\"}",
+                        "headers": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "designer": {
+                          "x": 0,
+                          "y": 0,
+                          "name": "Reject unsupported payload"
+                        }
+                      },
+                      "filter": {
+                        "name": "Unsupported payload",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{6.type}}",
+                              "o": "text:notequal",
+                              "b": "lead.created"
+                            }
+                          ],
+                          [
+                            {
+                              "a": "{{6.schema_version}}",
+                              "o": "number:notequal",
+                              "b": "1"
+                            }
+                          ],
+                          [
+                            {
+                              "a": "{{6.id}}",
+                              "o": "text:notequal",
+                              "b": "{{2.header_event_id}}"
+                            }
+                          ],
+                          [
+                            {
+                              "a": "{{length(6.id)}}",
+                              "o": "number:notequal",
+                              "b": "36"
+                            }
+                          ],
+                          [
+                            {
+                              "a": "{{6.data.lead.id}}",
+                              "o": "number:lessorequal",
+                              "b": "0"
+                            }
+                          ],
+                          [
+                            {
+                              "a": "{{6.data.lead.id}}",
+                              "o": "number:greaterorequal",
+                              "b": "1000"
+                            }
+                          ]
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 15,
+              "module": "gateway:WebhookRespond",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "status": "401",
+                "body": "{\"error\":\"Invalid signature or stale timestamp\"}",
+                "headers": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ]
+              },
+              "metadata": {
+                "designer": {
+                  "x": 0,
+                  "y": 0,
+                  "name": "Reject untrusted delivery"
+                }
+              },
+              "filter": {
+                "name": "Invalid signature or timestamp",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{sha256(4.value; \"hex\"; \"<TAVO_SIGNING_SECRET>\"; \"text\")}}",
+                      "o": "text:notequal",
+                      "b": "{{3.digest}}"
+                    }
+                  ],
+                  [
+                    {
+                      "a": "{{length(3.digest)}}",
+                      "o": "number:notequal",
+                      "b": "64"
+                    }
+                  ],
+                  [
+                    {
+                      "a": "{{length(3.timestamp)}}",
+                      "o": "number:notequal",
+                      "b": "10"
+                    }
+                  ],
+                  [
+                    {
+                      "a": "{{3.timestamp}}",
+                      "o": "number:less",
+                      "b": "{{formatDate(addSeconds(now; -300); \"X\")}}"
+                    }
+                  ],
+                  [
+                    {
+                      "a": "{{3.timestamp}}",
+                      "o": "number:greater",
+                      "b": "{{formatDate(addSeconds(now; 300); \"X\")}}"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "name": "Tavo B - CRM events to Google Sheets (staging)",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "dlq": false,
+      "slots": null,
+      "instant": true,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": true,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

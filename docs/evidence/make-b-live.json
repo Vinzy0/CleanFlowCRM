@@ -1,0 +1,255 @@
+{
+  "started_at": "2026-10-01T09:08:54.948994+00:00",
+  "source_event_id": "tavo-live-b-e1c1447b-7d3d-49b9-b232-a245e6b17f67",
+  "scenario_a_id": 6468861,
+  "scenario_b_id": 6468884,
+  "make_a_http_status": 201,
+  "lead_id": 5,
+  "lead_name": "Tavo Verified Make and Sheets",
+  "analysis": {
+    "service_category": "Commercial Cleaning",
+    "priority": "high",
+    "summary": "\u2022 Office cleaning requested for 2026-10-02.\n\u2022 Today is 2026-10-01, so the requested date is within 48 hours.\n\u2022 Service category is Commercial Cleaning; property type is Office.\n\u2022 Inquiry asks for a quote immediately.",
+    "matched_priority_rules": [
+      "Service requested within 48 hours",
+      "Commercial or high-value job",
+      "Immediate response requested"
+    ],
+    "classification_rationale": "High priority because multiple listed rules match: the requested date is within 48 hours, the job is commercial, and an immediate response was requested.",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "created_at": "2026-10-01T09:09:06.088529Z"
+  },
+  "counts": {
+    "stored_leads_for_source_event": 1,
+    "ai_analyses": 1,
+    "lead_created_events": 1
+  },
+  "event_id": "7077b785-79b2-44f6-89a7-bf87d7874798",
+  "event_type": "lead.created",
+  "event_created_at": "2026-10-01T09:08:59.210975+00:00",
+  "raw_body_sha256": "6e23ebae2a3f3fdae9811cd63e427dd0579ff7878161fe3f523eab54db37c325",
+  "delivery_records": [
+    {
+      "id": 1,
+      "event_id": "7077b785-79b2-44f6-89a7-bf87d7874798",
+      "event_type": "lead.created",
+      "destination": "Make Google Sheets - staging workflow",
+      "status": "succeeded",
+      "attempts": 1,
+      "created_at": "2026-10-01T09:08:59.742573+00:00",
+      "next_attempt_at": "2026-10-01T09:08:59.742568+00:00",
+      "history": [
+        {
+          "number": 1,
+          "status": "succeeded",
+          "http_status": 200,
+          "result": "HTTP 200",
+          "started_at": "2026-10-01T09:09:02.147973+00:00",
+          "finished_at": "2026-10-01T09:09:04.848468+00:00"
+        }
+      ]
+    }
+  ],
+  "sheet_id": "1m0B7neolZ-4UmkPQNYLTMvz9ZJKNOUbydNU7R5aGo7E",
+  "sheet_range": "Leads!A6:H6",
+  "scenario_b_status": "VERIFIED",
+  "make_a_recent_runs": [
+    {
+      "id": "91095e28c37b4f71881a2fa18326f91f",
+      "status": 1,
+      "duration": 1798,
+      "operations": 3,
+      "timestamp": "2026-10-01T09:19:55.086Z"
+    },
+    {
+      "id": "819b22d3e7544065aa5a1d3c77eb6b11",
+      "status": 1,
+      "duration": 14477,
+      "operations": 3,
+      "timestamp": "2026-10-01T09:08:56.580Z"
+    },
+    {
+      "id": "7d811af25bb748089d3cee5ab50e9090",
+      "status": 1,
+      "duration": 4374,
+      "operations": 3,
+      "timestamp": "2026-10-01T06:59:32.007Z"
+    },
+    {
+      "id": "8c80c1f3897b40c79b31dbad07884748",
+      "status": 2,
+      "duration": 1869,
+      "operations": 3,
+      "timestamp": "2026-10-01T06:48:11.909Z"
+    },
+    {
+      "id": "8dbf698db71542119b2b3f454998a0cb",
+      "status": 2,
+      "duration": 14894,
+      "operations": 3,
+      "timestamp": "2026-10-01T06:38:08.439Z"
+    },
+    {
+      "id": "495c2e7c11d74034b04f6f8edfb52605",
+      "status": 3,
+      "duration": 3837,
+      "operations": 2,
+      "timestamp": "2026-10-01T06:36:49.180Z"
+    }
+  ],
+  "make_b_recent_runs": [
+    {
+      "id": "cd1f40be8c0c4527b205aa94aa087774",
+      "status": 1,
+      "duration": 264,
+      "operations": 7,
+      "timestamp": "2026-10-01T09:19:54.252Z"
+    },
+    {
+      "id": "8906e9b568a54717a3e25e2d46672f98",
+      "status": 1,
+      "duration": 695,
+      "operations": 9,
+      "timestamp": "2026-10-01T09:12:31.087Z"
+    },
+    {
+      "id": "6583906d0a50454c9a388028cf8de1b2",
+      "status": 1,
+      "duration": 552,
+      "operations": 9,
+      "timestamp": "2026-10-01T09:09:04.112Z"
+    },
+    {
+      "id": "069b913ca0be4921be21684f2782ccb3",
+      "status": 1,
+      "duration": 255,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:06:34.760Z"
+    },
+    {
+      "id": "69c1c1c0a2c0411c9a8d2eb89c30f47c",
+      "status": 1,
+      "duration": 277,
+      "operations": 6,
+      "timestamp": "2026-10-01T09:06:33.936Z"
+    },
+    {
+      "id": "5918e8d6741d4394a5bccc9736603fd4",
+      "status": 1,
+      "duration": 466,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:06:32.922Z"
+    },
+    {
+      "id": "7dc5495a23994a09b2adacd843a63e13",
+      "status": 1,
+      "duration": 335,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:06:32.066Z"
+    },
+    {
+      "id": "2daac2be55a54836b49e5ffdbc04000f",
+      "status": 1,
+      "duration": 328,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:06:31.202Z"
+    },
+    {
+      "id": "b7695f6dcddf46f382c90e0a115839b9",
+      "status": 1,
+      "duration": 274,
+      "operations": 6,
+      "timestamp": "2026-10-01T09:06:30.392Z"
+    },
+    {
+      "id": "e037b4e8b4e944a3b0ca1ee120d33b2f",
+      "status": 1,
+      "duration": 233,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:03:40.241Z"
+    },
+    {
+      "id": "70c737bf981c438f8e012c6327585c2d",
+      "status": 1,
+      "duration": 269,
+      "operations": 6,
+      "timestamp": "2026-10-01T09:03:39.434Z"
+    },
+    {
+      "id": "ae423ad6f47941b7a11e78de695e3c21",
+      "status": 1,
+      "duration": 305,
+      "operations": 5,
+      "timestamp": "2026-10-01T09:03:38.605Z"
+    }
+  ],
+  "verified_sheet_row": [
+    "7077b785-79b2-44f6-89a7-bf87d7874798",
+    "5",
+    "Tavo Verified Make and Sheets",
+    "delivered+tavo-complete@resend.dev",
+    "Commercial Cleaning",
+    "New",
+    "Make custom webhook",
+    "2026-10-01T09:08:59.210975+00:00"
+  ],
+  "sheet_matching_row_count_before_replay": 1,
+  "sheet_verified_at": "2026-10-01T09:19:51.283872+00:00",
+  "completion_store_records": [
+    {
+      "key": "tavo-module-schema-test",
+      "data": {
+        "lead_id": 0,
+        "sheet_range": "module-setup-only",
+        "completed_at": "2026-10-01T08:55:18.267Z"
+      }
+    },
+    {
+      "key": "7077b785-79b2-44f6-89a7-bf87d7874798",
+      "data": {
+        "lead_id": 5,
+        "sheet_range": "Leads!A6:H6",
+        "completed_at": "2026-10-01T09:12:31.710Z"
+      }
+    }
+  ],
+  "b_replay_observed_response": {
+    "http_status": 200,
+    "response": {
+      "event_id": "7077b785-79b2-44f6-89a7-bf87d7874798",
+      "lead_id": 5,
+      "result": "duplicate"
+    }
+  },
+  "b_replay": {
+    "checked_at": "2026-10-01T09:19:54.016774+00:00",
+    "http_status": 200,
+    "response": {
+      "event_id": "7077b785-79b2-44f6-89a7-bf87d7874798",
+      "lead_id": 5,
+      "result": "duplicate"
+    }
+  },
+  "a_replay": {
+    "checked_at": "2026-10-01T09:19:56.400532+00:00",
+    "http_status": 201,
+    "lead_id": 5
+  },
+  "sheet_matching_row_count_after_replay": 1,
+  "sheet_unchanged_after_replay": true,
+  "counts_after_replay": {
+    "stored_leads_for_source_event": 1,
+    "ai_analyses": 1,
+    "lead_created_events": 1
+  },
+  "google_connection_verified": true,
+  "google_scope": "Sheets only; no Drive grant",
+  "scenario_a_status": "VERIFIED",
+  "verified_at": "2026-10-01T09:20:54.234948+00:00",
+  "replay_correction": "Make Data store output is exist, not its displayed label Exists. Corrected mapping; final replay returns duplicate and skips Sheets. Earlier replay safely overwrote the same fixed row.",
+  "make_received_body_sha256": "6e23ebae2a3f3fdae9811cd63e427dd0579ff7878161fe3f523eab54db37c325",
+  "make_creation_execution_id": "6583906d0a50454c9a388028cf8de1b2",
+  "make_received_event_id": "7077b785-79b2-44f6-89a7-bf87d7874798",
+  "make_scenarios_active": true,
+  "make_b_confidential_execution_data": true
+}

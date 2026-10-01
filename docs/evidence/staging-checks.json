@@ -5,11 +5,14 @@
   "scope_status": 403,
   "revoked_key_status": 401,
   "webhook_registration_status": 201,
-  "webhook_endpoint_id": 2,
+  "webhook_endpoint_id": 3,
   "allowed_cors_status": 200,
   "rejected_cors_status": 400,
   "production_health_status": 200,
   "at": "2026-10-01T06:53:48.414720+00:00",
-  "scenario_b": "NOT VERIFIED - inactive Make scenario, pending Google OAuth; no delivery or Sheets action claimed",
-  "pending_receiver_path": "replaced; old hook removed; fresh URL kept private"
+  "scenario_b": "VERIFIED; actual Google Sheets row and duplicate replay; see make-b-live.json",
+  "pending_receiver_path": "replaced; old hook removed; fresh URL kept private",
+  "scenario_b_at_initial_check": "NOT VERIFIED - inactive Make scenario, pending Google OAuth; no delivery or Sheets action claimed",
+  "initial_webhook_endpoint_id": 2,
+  "followup_verified_at": "2026-10-01T09:20:54.234948+00:00"
 }
