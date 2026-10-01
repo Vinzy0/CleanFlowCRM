@@ -1,6 +1,6 @@
 # Tavo Automation & Integrations
 
-Implementation status: **Tavo-side functionality verified locally with offline providers. Make A/B and Google Calendar NOT VERIFIED.** The user confirmed no Make/Google credentials are available. No production services were changed. Do not claim real Make, Zapier, n8n, Sheets, or Calendar experience from this milestone alone.
+Implementation status: **Tavo functionality verified offline and deployed to isolated staging; Make A VERIFIED; Make B / Sheets NOT VERIFIED pending Google OAuth consent.** See [live evidence](STAGING_VERIFICATION.md). The production feature rollout was not performed; its Resend sending key was explicitly rotated. Do not claim the full two-workflow milestone, or executed Zapier/n8n/Sheets/Calendar workflows.
 
 ## Architecture
 
@@ -157,6 +157,6 @@ Each API test creates a random isolated schema and drops it afterward. The optio
 
 See [verification record](VERIFICATION.md) for exact local checks and [Make setup](MAKE_WORKFLOWS.md) for live acceptance steps. [Desktop](evidence/integrations-desktop.jpg) and [mobile](evidence/integrations-mobile.jpg) images use a synthetic database and an **Offline receiver (mock)**. They prove presentation, not live delivery.
 
-Honest current claim: “I built a custom CRM with scoped external APIs, signed webhooks, persisted delivery attempts and retries, and AI lead processing. It supports HTTP/webhook automation tools; live Make workflows still require verification.”
+The full portfolio wording remains unchanged until both Make scenarios pass. Scenario A's actual Make intake, real AI classification, CRM persistence and duplicate replay are independently evidenced; Scenario B still requires consent and a verified Sheets action. See [live evidence](STAGING_VERIFICATION.md).
 
 Only after both Make scenarios meet their evidence checklist may the claim include real Make workflows. Zapier and n8n are compatible with this HTTP/JSON design; no platform execution or professional experience is claimed.

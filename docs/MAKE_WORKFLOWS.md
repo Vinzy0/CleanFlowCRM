@@ -1,12 +1,14 @@
 # Make workflows: setup and live acceptance
 
-**Scenario A: NOT VERIFIED. Scenario B: NOT VERIFIED. Calendar: NOT VERIFIED.** No Make or Google credentials were available. No scenarios were created, executed or represented as completed. These are implementation instructions, not execution evidence.
+**Scenario A: VERIFIED. Scenario B / Google Sheets: NOT VERIFIED. Calendar: optional, not executed.** On 2026-10-01, real Make scenario `6468861` created staging lead #4, real OpenRouter classification completed, and a duplicate replay created no second lead, analysis or event. Scenario `6468884` is an inactive receiver skeleton; its Google connection is awaiting OAuth consent. No Sheets row, completed outbound action or live receiver signature verification is claimed. [Evidence and exact state](STAGING_VERIFICATION.md).
 
 ## Prerequisites
 
-Use a separate Tavo development workspace reachable over public HTTPS, with migrated database, normal owner login, `DEMO_MODE=false`, development OpenRouter key, `EMAIL_TRANSPORT=log`, and the integration encryption key. Do not use the public production demo, the old Resend key, or a production database. Start the webhook worker. A hosted development environment/tunnel needs the user's setup and authorization; none was created here.
+Use a separate Tavo development workspace reachable over public HTTPS, with migrated database, normal owner login, `DEMO_MODE=false`, OpenRouter key, `EMAIL_TRANSPORT=log`, and the integration encryption key. Do not use the public production demo or a production database. The authorized staging API and frontend are now deployed to Render Free and separate Neon PostgreSQL 18.6. Staging explicitly runs `python -m app.staging_server`, which migrates the database and supervises the API and webhook worker. The old Resend key is revoked; staging email remains captured in the log transport.
 
 In Tavo Integrations, generate a read/write API key. Store it in Make's HTTP API-key credential connection, using header name `X-API-Key`. Keep keys and webhook paths out of exported blueprints/screenshots. Make's current [HTTP documentation](https://apps.make.com/http) supports API-key credentials and recommends its dedicated credential field.
+
+The executed Scenario A currently uses Make's legacy HTTP module with the key in its private header configuration, with confidential execution data enabled. Its intake webhook also requires `x-make-apikey`. The body uses `escapeJSON` for mapped strings and fixed synthetic verification tags. No credential-bearing blueprint is published. Prefer the current HTTP module's credential store for client deployments; exported legacy header configuration contains the key and must stay private. Earlier executions acknowledged the queue with `200 Accepted` and had a response-module scheduling warning. After correcting instant execution metadata, the final duplicate replay returned 201 with the original lead ID and a clean Make run. Tavo's saved integration request, actual model analysis and CRM record establish creation/processing independently; a queue acknowledgment alone does not.
 
 ## Scenario A: Make → Tavo → AI
 
@@ -59,8 +61,8 @@ The design uses ordinary HTTPS JSON, `X-API-Key`, idempotency headers and signed
 | --- | --- | --- |
 | Tavo external creation + classification | VERIFIED offline | pytest fake-provider persisted-lead tests |
 | Tavo outbound delivery + retries/HMAC | VERIFIED offline | injected sender, real persisted outbox and attempts |
-| Make A live execution | NOT VERIFIED | No account credentials |
-| Make B reception + Sheets action | NOT VERIFIED | No Make/Google credentials |
+| Make A live execution | VERIFIED | Lead #4, real model, CRM; final clean replay `7d811af25bb748089d3cee5ab50e9090`, HTTP 201 |
+| Make B reception + Sheets action | NOT VERIFIED | Receiver skeleton exists; Google OAuth consent pending; no downstream row |
 | Optional Calendar action | NOT VERIFIED | Recipe only |
 | Zapier/n8n | Compatible design; NOT VERIFIED | HTTP contract and official module documentation |
 

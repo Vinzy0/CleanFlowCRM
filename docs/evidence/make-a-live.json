@@ -1,0 +1,47 @@
+{
+  "verified_at": "2026-10-01T06:59:30.549831+00:00",
+  "scenario_id": 6468861,
+  "source_event_id": "tavo-live-f54eccf1-b27a-4f0d-95af-64d827a14133",
+  "tavo_creation_status": 201,
+  "lead_id": 4,
+  "ai_model": "deepseek/deepseek-v4.1-flash",
+  "priority": "high",
+  "classification_created_at": "2026-10-01T06:38:18.318749+00:00",
+  "crm_url": "https://tavo-web-staging.onrender.com/crm/leads/4",
+  "replay_http_status": 201,
+  "duplicate_replay": "same lead; no new lead, AI analysis or lead.created event",
+  "make_runs": [
+    {
+      "id": "7d811af25bb748089d3cee5ab50e9090",
+      "status": 1,
+      "timestamp": "2026-10-01T06:59:32.007Z",
+      "duration": 4374,
+      "operations": 3,
+      "status_label": "Success"
+    },
+    {
+      "id": "8c80c1f3897b40c79b31dbad07884748",
+      "status": 2,
+      "timestamp": "2026-10-01T06:48:11.909Z",
+      "duration": 1869,
+      "operations": 3,
+      "status_label": "Warning"
+    },
+    {
+      "id": "8dbf698db71542119b2b3f454998a0cb",
+      "status": 2,
+      "timestamp": "2026-10-01T06:38:08.439Z",
+      "duration": 14894,
+      "operations": 3,
+      "status_label": "Warning"
+    },
+    {
+      "id": "495c2e7c11d74034b04f6f8edfb52605",
+      "status": 3,
+      "timestamp": "2026-10-01T06:36:49.180Z",
+      "duration": 3837,
+      "operations": 2,
+      "status_label": "Error"
+    }
+  ]
+}

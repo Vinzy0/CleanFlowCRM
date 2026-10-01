@@ -1,0 +1,15 @@
+{
+  "health_status": 200,
+  "invalid_key_status": 401,
+  "read_key_status": 200,
+  "scope_status": 403,
+  "revoked_key_status": 401,
+  "webhook_registration_status": 201,
+  "webhook_endpoint_id": 2,
+  "allowed_cors_status": 200,
+  "rejected_cors_status": 400,
+  "production_health_status": 200,
+  "at": "2026-10-01T06:53:48.414720+00:00",
+  "scenario_b": "NOT VERIFIED - inactive Make scenario, pending Google OAuth; no delivery or Sheets action claimed",
+  "pending_receiver_path": "replaced; old hook removed; fresh URL kept private"
+}
